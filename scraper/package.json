@@ -1,0 +1,24 @@
+{
+  "name": "n01-darts-scraper",
+  "version": "1.0.0",
+  "description": "Scraper for n01darts.com live tournament data",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "keywords": [
+    "darts",
+    "scraper",
+    "n01",
+    "puppeteer"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
+    "dotenv": "^16.3.1",
+    "puppeteer": "^21.6.0"
+  }
+}

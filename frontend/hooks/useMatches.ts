@@ -1,0 +1,98 @@
+'use client';
+
+import { useState, useEffect, useCallback, useRef } from 'react';
+import type { Match, MatchesApiResponse } from '@/lib/types';
+import { toDateString } from '@/lib/utils';
+
+const POLLING_INTERVAL = 15000; // 15 sekund
+
+interface UseMatchesOptions {
+  date?: Date;
+  tournamentId?: string;
+  pollingEnabled?: boolean;
+}
+
+interface UseMatchesReturn {
+  matches: Match[];
+  isLoading: boolean;
+  error: string | null;
+  lastUpdated: Date | null;
+  refetch: () => Promise<void>;
+}
+
+export function useMatches(options: UseMatchesOptions = {}): UseMatchesReturn {
+  const { date = new Date(), tournamentId, pollingEnabled = true } = options;
+
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const fetchMatches = useCallback(async () => {
+    // Anuluj poprzednie żądanie
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+
+    try {
+      const params = new URLSearchParams();
+      params.set('date', toDateString(date));
+      if (tournamentId) {
+        params.set('tournament_id', tournamentId);
+      }
+
+      const response = await fetch(`/api/matches?${params.toString()}`, {
+        signal: abortControllerRef.current.signal,
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch matches');
+      }
+
+      const data: MatchesApiResponse = await response.json();
+      setMatches(data.matches);
+      setLastUpdated(new Date(data.lastUpdated));
+      setError(null);
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        return; // Zignoruj anulowane żądania
+      }
+      console.error('Error fetching matches:', err);
+      setError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [date, tournamentId]);
+
+  // Początkowe pobranie danych
+  useEffect(() => {
+    setIsLoading(true);
+    fetchMatches();
+
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, [fetchMatches]);
+
+  // Polling
+  useEffect(() => {
+    if (!pollingEnabled) return;
+
+    const intervalId = setInterval(fetchMatches, POLLING_INTERVAL);
+
+    return () => clearInterval(intervalId);
+  }, [fetchMatches, pollingEnabled]);
+
+  return {
+    matches,
+    isLoading,
+    error,
+    lastUpdated,
+    refetch: fetchMatches,
+  };
+}
