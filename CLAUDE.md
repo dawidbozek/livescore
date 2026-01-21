@@ -7,6 +7,30 @@ System wyników na żywo dla Mistrzostw Polski w Darcie. Składa się z:
 - **Frontend** - wyświetla wyniki na żywo w przeglądarce
 - **Baza danych** - Supabase (PostgreSQL)
 
+## Repozytorium
+
+**GitHub:** https://github.com/dawidbozek/livescore
+
+## Deployment (Produkcja)
+
+| Komponent | Hosting | URL/Lokalizacja |
+|-----------|---------|-----------------|
+| **Frontend** | Netlify | (twój-url.netlify.app) |
+| **Scraper** | Mikrus (VPS) | ~/livescore/scraper |
+| **Baza danych** | Supabase | (twój-projekt.supabase.co) |
+
+### Zmienne środowiskowe (produkcja)
+
+**Netlify** (frontend):
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_KEY`
+
+**Mikrus** (scraper - plik `~/livescore/scraper/.env`):
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_KEY`
+- `SCRAPE_INTERVAL_MS=30000`
+
 ## Struktura projektu
 
 ```
@@ -232,11 +256,59 @@ npm start
 2. Sprawdź czy turniej jest oznaczony jako aktywny
 3. Odśwież stronę lub zmień datę w DateSelector
 
+## Workflow - praca nad projektem
+
+### 1. Lokalne zmiany
+```bash
+# Edytuj pliki lokalnie
+# Testuj lokalnie (frontend + scraper w osobnych terminalach)
+cd frontend && npm run dev
+cd scraper && npm start
+```
+
+### 2. Commit i push do GitHub
+```bash
+git add .
+git commit -m "Opis zmian"
+git push
+```
+
+### 3. Deployment
+
+**Frontend (Netlify)** - automatyczny deploy po pushu do GitHub
+
+**Scraper (Mikrus)** - ręczna aktualizacja przez SSH:
+```bash
+ssh user@mikrus-adres
+cd ~/livescore/scraper
+git pull
+npm install  # tylko jeśli zmienił się package.json
+pm2 restart darts-scraper
+```
+
+### Przydatne komendy PM2 (Mikrus)
+```bash
+pm2 status                    # Status wszystkich procesów
+pm2 logs darts-scraper        # Logi scrapera (live)
+pm2 logs darts-scraper --lines 50  # Ostatnie 50 linii
+pm2 restart darts-scraper     # Restart scrapera
+pm2 stop darts-scraper        # Zatrzymaj scraper
+pm2 start darts-scraper       # Uruchom scraper
+pm2 monit                     # Monitor CPU/RAM
+```
+
 ## Znane problemy
 
 1. **Background jobs w Windows/MINGW** - nie działają poprawnie, serwery trzeba uruchamiać ręcznie w osobnych terminalach
 2. **Viewport metadata warning** - ostrzeżenie Next.js, nie wpływa na działanie
 
 ## Przyszłe ulepszenia
+
+- [ ] WebSocket zamiast polling dla real-time updates
+- [ ] Historia meczów i statystyki graczy
+- [ ] Eksport wyników do PDF/Excel
+- [ ] Powiadomienia push o zakończonych meczach
+- [ ] Dark mode
+- [ ] Poprawa responsywności na urządzeniach mobilnych
 
 
