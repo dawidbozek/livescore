@@ -8,34 +8,50 @@ interface CountdownTime {
   minutes: number;
   seconds: number;
   isExpired: boolean;
+  isLoaded: boolean;
 }
 
+const defaultState: CountdownTime = {
+  days: 0,
+  hours: 0,
+  minutes: 0,
+  seconds: 0,
+  isExpired: false,
+  isLoaded: false,
+};
+
 export function useCountdown(targetDate: Date): CountdownTime {
-  const calculateTimeLeft = (): CountdownTime => {
-    const difference = targetDate.getTime() - new Date().getTime();
-
-    if (difference <= 0) {
-      return {
-        days: 0,
-        hours: 0,
-        minutes: 0,
-        seconds: 0,
-        isExpired: true,
-      };
-    }
-
-    return {
-      days: Math.floor(difference / (1000 * 60 * 60 * 24)),
-      hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
-      minutes: Math.floor((difference / 1000 / 60) % 60),
-      seconds: Math.floor((difference / 1000) % 60),
-      isExpired: false,
-    };
-  };
-
-  const [timeLeft, setTimeLeft] = useState<CountdownTime>(calculateTimeLeft);
+  const [timeLeft, setTimeLeft] = useState<CountdownTime>(defaultState);
 
   useEffect(() => {
+    const calculateTimeLeft = (): CountdownTime => {
+      const difference = targetDate.getTime() - new Date().getTime();
+
+      if (difference <= 0) {
+        return {
+          days: 0,
+          hours: 0,
+          minutes: 0,
+          seconds: 0,
+          isExpired: true,
+          isLoaded: true,
+        };
+      }
+
+      return {
+        days: Math.floor(difference / (1000 * 60 * 60 * 24)),
+        hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
+        minutes: Math.floor((difference / 1000 / 60) % 60),
+        seconds: Math.floor((difference / 1000) % 60),
+        isExpired: false,
+        isLoaded: true,
+      };
+    };
+
+    // Initial calculation
+    setTimeLeft(calculateTimeLeft());
+
+    // Update every second
     const timer = setInterval(() => {
       setTimeLeft(calculateTimeLeft());
     }, 1000);

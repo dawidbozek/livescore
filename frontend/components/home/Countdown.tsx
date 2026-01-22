@@ -1,9 +1,7 @@
 'use client';
 
+import { useMemo } from 'react';
 import { useCountdown } from '@/hooks/useCountdown';
-
-// Event start date - July 16, 2026 at 8:00 AM
-const EVENT_DATE = new Date('2026-07-16T08:00:00');
 
 interface TimeBlockProps {
   value: number;
@@ -25,8 +23,44 @@ function TimeBlock({ value, label }: TimeBlockProps) {
   );
 }
 
+function LoadingBlock() {
+  return (
+    <div className="flex flex-col items-center">
+      <div className="bg-gray-900 text-white rounded-lg w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 flex items-center justify-center shadow-lg animate-pulse">
+        <span className="text-2xl sm:text-3xl md:text-4xl font-bold tabular-nums">--</span>
+      </div>
+      <span className="text-xs sm:text-sm text-muted-foreground mt-2 uppercase tracking-wide">&nbsp;</span>
+    </div>
+  );
+}
+
 export function Countdown() {
-  const { days, hours, minutes, seconds, isExpired } = useCountdown(EVENT_DATE);
+  // Event start date - July 16, 2026 at 8:00 AM
+  const eventDate = useMemo(() => new Date('2026-07-16T08:00:00'), []);
+  const { days, hours, minutes, seconds, isExpired, isLoaded } = useCountdown(eventDate);
+
+  // Show loading state during hydration
+  if (!isLoaded) {
+    return (
+      <section className="py-12 sm:py-16 bg-gray-50">
+        <div className="container mx-auto container-responsive sm:px-4">
+          <div className="text-center mb-8">
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
+              Do rozpoczęcia zostało
+            </h2>
+            <p className="text-muted-foreground">16 lipca 2026, godzina 8:00</p>
+          </div>
+          <div className="flex items-center justify-center gap-3 sm:gap-4 md:gap-6">
+            <LoadingBlock />
+            <div className="text-2xl sm:text-3xl font-bold text-gray-400 self-start mt-5 sm:mt-6 md:mt-7">:</div>
+            <LoadingBlock />
+            <div className="text-2xl sm:text-3xl font-bold text-gray-400 self-start mt-5 sm:mt-6 md:mt-7">:</div>
+            <LoadingBlock />
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   if (isExpired) {
     return (
