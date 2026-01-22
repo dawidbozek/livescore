@@ -52,7 +52,7 @@ export function SearchBar({ matches, onSearchResults, onClear }: SearchBarProps)
   };
 
   return (
-    <div className="relative w-full max-w-md">
+    <div className="relative w-full">
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
@@ -60,14 +60,15 @@ export function SearchBar({ matches, onSearchResults, onClear }: SearchBarProps)
           placeholder="Szukaj zawodnika..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="pl-10 pr-10"
+          className="pl-10 pr-10 min-h-[44px] text-base"
         />
         {query && (
           <Button
             variant="ghost"
             size="icon"
-            className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+            className="absolute right-1 top-1/2 -translate-y-1/2 h-10 w-10"
             onClick={handleClear}
+            aria-label="Wyczyść wyszukiwanie"
           >
             <X className="h-4 w-4" />
           </Button>

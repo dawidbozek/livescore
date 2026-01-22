@@ -16,8 +16,8 @@ const statusConfig: Record<
 > = {
   active: {
     label: 'W trakcie',
-    className: 'bg-green-500/10 border-green-500/30 text-green-700',
-    dotClassName: 'bg-green-500 animate-pulse-slow',
+    className: 'bg-darts-green/10 border-darts-green/30 text-darts-green',
+    dotClassName: 'bg-darts-green animate-pulse-slow',
   },
   pending: {
     label: 'Oczekujący',
@@ -38,17 +38,18 @@ const statusConfig: Record<
 
 export function MatchCard({ match, showTournament = false }: MatchCardProps) {
   const status = statusConfig[match.status];
+  const isActive = match.status === 'active';
 
   return (
     <Card
       className={cn(
         'overflow-hidden transition-all hover:shadow-md',
-        match.status === 'active' && 'ring-2 ring-green-500/50'
+        isActive && 'ring-2 ring-darts-green/50 bg-darts-green/5'
       )}
     >
-      <CardContent className="p-4">
-        {/* Status i numer tarczy */}
-        <div className="flex items-center justify-between mb-3">
+      <CardContent className="p-3 sm:p-4">
+        {/* Header: Status and Station */}
+        <div className="flex items-center justify-between mb-3 gap-2">
           <div
             className={cn(
               'flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium border',
@@ -59,34 +60,49 @@ export function MatchCard({ match, showTournament = false }: MatchCardProps) {
             {status.label}
           </div>
 
+          {/* Station number - circle design for active */}
           {match.station_number && (
-            <div className="flex items-center gap-1.5 px-2 py-1 bg-blue-500/10 text-blue-700 rounded-full text-xs font-medium">
-              <Target className="w-3 h-3" />
-              Tarcza {match.station_number}
+            <div className={cn(
+              'flex items-center justify-center font-bold',
+              isActive
+                ? 'w-10 h-10 rounded-full bg-darts-green text-white text-lg'
+                : 'gap-1.5 px-2 py-1 bg-blue-500/10 text-blue-700 rounded-full text-xs'
+            )}>
+              {isActive ? (
+                match.station_number
+              ) : (
+                <>
+                  <Target className="w-3 h-3" />
+                  <span>T{match.station_number}</span>
+                </>
+              )}
             </div>
           )}
         </div>
 
-        {/* Gracze i wynik */}
-        <div className="flex items-center justify-between gap-4">
-          {/* Gracz 1 */}
-          <div className="flex-1 text-right">
+        {/* Players and Score */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Player 1 */}
+          <div className="flex-1 min-w-0 text-right">
             <p
               className={cn(
-                'font-semibold truncate',
-                match.player1_score > match.player2_score && 'text-green-600'
+                'font-semibold truncate text-sm sm:text-base',
+                match.player1_score > match.player2_score && 'text-darts-green'
               )}
             >
               {match.player1_name}
             </p>
           </div>
 
-          {/* Wynik */}
-          <div className="flex items-center gap-2 px-3 py-1 bg-muted rounded-lg">
+          {/* Score */}
+          <div className={cn(
+            'flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-lg flex-shrink-0',
+            isActive ? 'bg-darts-green/10' : 'bg-muted'
+          )}>
             <span
               className={cn(
-                'text-xl font-bold tabular-nums',
-                match.player1_score > match.player2_score && 'text-green-600'
+                'text-lg sm:text-xl font-bold tabular-nums',
+                match.player1_score > match.player2_score && 'text-darts-green'
               )}
             >
               {match.player1_score}
@@ -94,20 +110,20 @@ export function MatchCard({ match, showTournament = false }: MatchCardProps) {
             <span className="text-muted-foreground">:</span>
             <span
               className={cn(
-                'text-xl font-bold tabular-nums',
-                match.player2_score > match.player1_score && 'text-green-600'
+                'text-lg sm:text-xl font-bold tabular-nums',
+                match.player2_score > match.player1_score && 'text-darts-green'
               )}
             >
               {match.player2_score}
             </span>
           </div>
 
-          {/* Gracz 2 */}
-          <div className="flex-1">
+          {/* Player 2 */}
+          <div className="flex-1 min-w-0">
             <p
               className={cn(
-                'font-semibold truncate',
-                match.player2_score > match.player1_score && 'text-green-600'
+                'font-semibold truncate text-sm sm:text-base',
+                match.player2_score > match.player1_score && 'text-darts-green'
               )}
             >
               {match.player2_name}
@@ -115,19 +131,23 @@ export function MatchCard({ match, showTournament = false }: MatchCardProps) {
           </div>
         </div>
 
-        {/* Sędzia i turniej */}
-        <div className="mt-3 pt-3 border-t flex items-center justify-between text-xs text-muted-foreground">
-          {match.referee && (
-            <div className="flex items-center gap-1">
-              <User className="w-3 h-3" />
-              <span>Sędzia: {match.referee}</span>
-            </div>
-          )}
+        {/* Footer: Referee and Tournament */}
+        {(match.referee || (showTournament && match.tournament)) && (
+          <div className="mt-3 pt-3 border-t flex items-center justify-between text-xs text-muted-foreground gap-2">
+            {match.referee && (
+              <div className="flex items-center gap-1 min-w-0">
+                <User className="w-3 h-3 flex-shrink-0" />
+                <span className="truncate">Sędzia: {match.referee}</span>
+              </div>
+            )}
 
-          {showTournament && match.tournament && (
-            <span className="truncate">{match.tournament.name}</span>
-          )}
-        </div>
+            {showTournament && match.tournament && (
+              <span className="truncate text-right flex-shrink-0 max-w-[50%]">
+                {match.tournament.name}
+              </span>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

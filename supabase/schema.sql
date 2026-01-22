@@ -10,8 +10,17 @@ CREATE TABLE IF NOT EXISTS tournaments (
     n01_url TEXT NOT NULL,
     tournament_date DATE NOT NULL,
     is_active BOOLEAN DEFAULT true,
+    dart_type VARCHAR(10) DEFAULT 'steel',
+    category VARCHAR(20),
+    start_time TIME,
+    entry_fee VARCHAR(50),
+    prizes TEXT,
+    format VARCHAR(100),
+    image_url TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    CONSTRAINT check_dart_type CHECK (dart_type IN ('soft', 'steel')),
+    CONSTRAINT check_category CHECK (category IS NULL OR category IN ('indywidualny', 'deblowy', 'triple_mieszane', 'druzynowy'))
 );
 
 -- Tabela meczów
@@ -179,3 +188,24 @@ BEGIN
         m.updated_at DESC;
 END;
 $$ LANGUAGE plpgsql;
+
+-- =============================================
+-- MIGRACJA v2 - Nowe pola turniejów
+-- Wykonaj poniższe komendy ręcznie w Supabase SQL Editor
+-- jeśli baza danych już istnieje
+-- =============================================
+
+-- ALTER TABLE tournaments
+-- ADD COLUMN IF NOT EXISTS dart_type VARCHAR(10) DEFAULT 'steel',
+-- ADD COLUMN IF NOT EXISTS category VARCHAR(20),
+-- ADD COLUMN IF NOT EXISTS start_time TIME,
+-- ADD COLUMN IF NOT EXISTS entry_fee VARCHAR(50),
+-- ADD COLUMN IF NOT EXISTS prizes TEXT,
+-- ADD COLUMN IF NOT EXISTS format VARCHAR(100),
+-- ADD COLUMN IF NOT EXISTS image_url TEXT;
+
+-- ALTER TABLE tournaments
+-- ADD CONSTRAINT check_dart_type CHECK (dart_type IN ('soft', 'steel'));
+
+-- ALTER TABLE tournaments
+-- ADD CONSTRAINT check_category CHECK (category IS NULL OR category IN ('indywidualny', 'deblowy', 'triple_mieszane', 'druzynowy'));

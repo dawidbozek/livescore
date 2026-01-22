@@ -1,4 +1,4 @@
-# CLAUDE.md - Darts Live Score
+# CLAUDE.md - Darts Live Score v2
 
 ## Opis projektu
 
@@ -10,6 +10,24 @@ System wyników na żywo dla Mistrzostw Polski w Darcie. Składa się z:
 ## Repozytorium
 
 **GitHub:** https://github.com/dawidbozek/livescore
+
+## Wersja 2.0 - Zmiany
+
+### Nowe funkcje
+- **Typ darta** - rozróżnienie Steel Tip / Soft Tip z ikonami
+- **Kategorie turniejów** - indywidualny, deblowy, triple mieszane, drużynowy
+- **Rozszerzone dane turniejów** - godzina startu, wpisowe, nagrody, format
+- **Nowy DateSelector** - opcja "Wszystkie aktywne" (pobiera turnieje bez filtra po dacie)
+- **Zwijane zakończone mecze** - sekcja z kolapsem
+- **Modal szczegółów turnieju** - popup z pełnymi informacjami
+- **Header z logo** - sticky header z miejscem na hamburger menu
+- **Banner** - miejsce na baner MP2026
+
+### Zmiany w UI
+- **Nowy kolor główny** - #C1272D (czerwony)
+- **Responsywność 320px+** - minimalna szerokość 320px
+- **Touch-friendly** - przyciski min 44px
+- **Redesign MatchCard** - numer tarczy jako duże kółko dla aktywnych meczów
 
 ## Deployment (Produkcja)
 
@@ -49,10 +67,14 @@ Scraper N01/
 │   │   └── globals.css
 │   ├── components/     # Komponenty React
 │   │   ├── ui/         # Shadcn-like komponenty bazowe
+│   │   ├── Header.tsx        # NEW: Header z logo
+│   │   ├── Banner.tsx        # NEW: Banner MP2026
 │   │   ├── ActiveMatches.tsx
 │   │   ├── PendingMatches.tsx
+│   │   ├── FinishedMatches.tsx   # NEW: Zwijana sekcja
 │   │   ├── MatchCard.tsx
 │   │   ├── TournamentList.tsx
+│   │   ├── TournamentInfoModal.tsx  # NEW: Modal szczegółów
 │   │   ├── SearchBar.tsx
 │   │   └── DateSelector.tsx
 │   ├── hooks/          # Custom React hooks
@@ -62,6 +84,8 @@ Scraper N01/
 │   │   ├── supabase.ts       # Klient Supabase
 │   │   ├── types.ts          # Typy TypeScript
 │   │   └── utils.ts          # Funkcje pomocnicze
+│   ├── public/
+│   │   └── images/           # NEW: Grafiki (logo, banner)
 │   ├── .env.local            # Zmienne środowiskowe (nie commitować!)
 │   └── package.json
 │
@@ -80,6 +104,33 @@ Scraper N01/
 │
 └── CLAUDE.md           # Ten plik
 ```
+
+## Migracja bazy danych (v2)
+
+**WAŻNE:** Przed deployem wersji 2.0, wykonaj poniższy SQL w Supabase SQL Editor:
+
+```sql
+ALTER TABLE tournaments
+ADD COLUMN IF NOT EXISTS dart_type VARCHAR(10) DEFAULT 'steel',
+ADD COLUMN IF NOT EXISTS category VARCHAR(20),
+ADD COLUMN IF NOT EXISTS start_time TIME,
+ADD COLUMN IF NOT EXISTS entry_fee VARCHAR(50),
+ADD COLUMN IF NOT EXISTS prizes TEXT,
+ADD COLUMN IF NOT EXISTS format VARCHAR(100),
+ADD COLUMN IF NOT EXISTS image_url TEXT;
+
+ALTER TABLE tournaments
+ADD CONSTRAINT check_dart_type CHECK (dart_type IN ('soft', 'steel'));
+
+ALTER TABLE tournaments
+ADD CONSTRAINT check_category CHECK (category IS NULL OR category IN ('indywidualny', 'deblowy', 'triple_mieszane', 'druzynowy'));
+```
+
+## Grafiki
+
+Zapisz pliki do `frontend/public/images/`:
+- `logo-darts-polska.png` - logo w headerze (wysokość ~40px)
+- `banner-mp2026.png` - banner pod headerem (proporcje ~3:1)
 
 ## Uruchomienie projektu
 
@@ -154,8 +205,10 @@ npm start
 ## API Endpoints
 
 ### Publiczne
-- `GET /api/tournaments?date=YYYY-MM-DD` - lista aktywnych turniejów
-- `GET /api/matches?date=YYYY-MM-DD&tournament_id=UUID` - lista meczów
+- `GET /api/tournaments?date=YYYY-MM-DD` - lista aktywnych turniejów dla daty
+- `GET /api/tournaments?active_only=true` - wszystkie aktywne turnieje (bez filtra daty)
+- `GET /api/matches?date=YYYY-MM-DD&tournament_id=UUID` - lista meczów dla daty
+- `GET /api/matches?active_only=true` - wszystkie mecze z aktywnych turniejów
 
 ### Admin (wymagają autoryzacji)
 - `POST /api/admin/auth` - logowanie (hasło: `DartsMP2026!`)
@@ -174,6 +227,13 @@ npm start
 | n01_url | TEXT | URL do n01darts.com |
 | tournament_date | DATE | Data turnieju |
 | is_active | BOOLEAN | Czy aktywny |
+| dart_type | VARCHAR(10) | 'steel' lub 'soft' |
+| category | VARCHAR(20) | Kategoria turnieju |
+| start_time | TIME | Godzina startu |
+| entry_fee | VARCHAR(50) | Wpisowe |
+| prizes | TEXT | Nagrody |
+| format | VARCHAR(100) | Format turnieju |
+| image_url | TEXT | URL grafiki |
 | created_at | TIMESTAMP | Data utworzenia |
 | updated_at | TIMESTAMP | Data aktualizacji |
 
@@ -202,9 +262,9 @@ npm start
 
 | Status | Opis | Wyświetlanie |
 |--------|------|--------------|
-| `active` | Mecz w trakcie (ma przypisaną tarcze) | Czerwona sekcja na górze |
+| `active` | Mecz w trakcie (ma przypisaną tarcze) | Zielona sekcja na górze |
 | `pending` | Mecz oczekujący | Żółta sekcja |
-| `finished` | Mecz zakończony | Szara sekcja (opacity 70%) |
+| `finished` | Mecz zakończony | Szara sekcja (zwijana) |
 | `walkover` | Walkover | Szara sekcja (opacity 50%) |
 
 ## Przepływ danych
@@ -238,6 +298,16 @@ npm start
 - Pliki: kebab-case lub PascalCase dla komponentów
 - Tabele DB: snake_case (`player1_name`)
 
+## Kolory (v2)
+
+| Nazwa | Wartość | Użycie |
+|-------|---------|--------|
+| Primary | #C1272D | Główny kolor (przyciski, akcenty) |
+| Primary Hover | #A01F25 | Hover state |
+| Success/Green | #15803D | Aktywne mecze, zielony status |
+| Soft Tip | #3B82F6 | Ikona Soft darts |
+| Steel Tip | #6B7280 | Ikona Steel darts |
+
 ## Debugowanie
 
 ### Frontend nie ładuje się
@@ -252,9 +322,9 @@ npm start
 4. Zweryfikuj klucz Supabase (musi być `service_role`)
 
 ### Turniej nie pokazuje się na froncie
-1. Sprawdź czy data turnieju = dzisiaj
-2. Sprawdź czy turniej jest oznaczony jako aktywny
-3. Odśwież stronę lub zmień datę w DateSelector
+1. Sprawdź czy turniej jest oznaczony jako aktywny
+2. Użyj "Wszystkie aktywne" w DateSelector
+3. Odśwież stronę
 
 ## Workflow - praca nad projektem
 
@@ -309,6 +379,4 @@ pm2 monit                     # Monitor CPU/RAM
 - [ ] Eksport wyników do PDF/Excel
 - [ ] Powiadomienia push o zakończonych meczach
 - [ ] Dark mode
-- [ ] Poprawa responsywności na urządzeniach mobilnych
-
-
+- [ ] Integracja z główną stroną MP2026 (monorepo)

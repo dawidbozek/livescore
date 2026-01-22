@@ -7,9 +7,10 @@ import { toDateString } from '@/lib/utils';
 const POLLING_INTERVAL = 15000; // 15 sekund
 
 interface UseMatchesOptions {
-  date?: Date;
+  date?: Date | null;
   tournamentId?: string;
   pollingEnabled?: boolean;
+  activeOnly?: boolean;
 }
 
 interface UseMatchesReturn {
@@ -21,7 +22,7 @@ interface UseMatchesReturn {
 }
 
 export function useMatches(options: UseMatchesOptions = {}): UseMatchesReturn {
-  const { date = new Date(), tournamentId, pollingEnabled = true } = options;
+  const { date, tournamentId, pollingEnabled = true, activeOnly = false } = options;
 
   const [matches, setMatches] = useState<Match[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -39,7 +40,18 @@ export function useMatches(options: UseMatchesOptions = {}): UseMatchesReturn {
 
     try {
       const params = new URLSearchParams();
-      params.set('date', toDateString(date));
+
+      // Jeśli activeOnly=true i brak daty, pobierz wszystkie aktywne
+      // Jeśli jest data, pobierz dla konkretnego dnia
+      if (date) {
+        params.set('date', toDateString(date));
+      } else if (activeOnly) {
+        params.set('active_only', 'true');
+      } else {
+        // Domyślnie dzisiaj
+        params.set('date', toDateString(new Date()));
+      }
+
       if (tournamentId) {
         params.set('tournament_id', tournamentId);
       }
@@ -65,7 +77,7 @@ export function useMatches(options: UseMatchesOptions = {}): UseMatchesReturn {
     } finally {
       setIsLoading(false);
     }
-  }, [date, tournamentId]);
+  }, [date, tournamentId, activeOnly]);
 
   // Początkowe pobranie danych
   useEffect(() => {

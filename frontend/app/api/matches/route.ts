@@ -6,6 +6,7 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const date = searchParams.get('date');
     const tournamentId = searchParams.get('tournament_id');
+    const activeOnly = searchParams.get('active_only') === 'true';
 
     let query = supabase
       .from('matches')
@@ -15,13 +16,22 @@ export async function GET(request: NextRequest) {
           id,
           name,
           tournament_date,
-          is_active
+          is_active,
+          dart_type,
+          category,
+          start_time,
+          entry_fee,
+          prizes,
+          format,
+          image_url
         )
       `)
       .eq('tournament.is_active', true)
       .order('station_number', { ascending: true, nullsFirst: false });
 
-    if (date) {
+    // Jeśli activeOnly=true, nie filtruj po dacie - pobierz wszystkie aktywne turnieje
+    // Jeśli jest data, filtruj po niej
+    if (date && !activeOnly) {
       query = query.eq('tournament.tournament_date', date);
     }
 

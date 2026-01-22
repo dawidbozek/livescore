@@ -43,7 +43,19 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, n01_url, tournament_date, is_active } = body;
+    const {
+      name,
+      n01_url,
+      tournament_date,
+      is_active,
+      dart_type,
+      category,
+      start_time,
+      entry_fee,
+      prizes,
+      format,
+      image_url,
+    } = body;
 
     if (!name || !n01_url || !tournament_date) {
       return NextResponse.json(
@@ -74,6 +86,13 @@ export async function POST(request: NextRequest) {
         n01_url,
         tournament_date,
         is_active: is_active ?? true,
+        dart_type: dart_type || 'steel',
+        category: category || null,
+        start_time: start_time || null,
+        entry_fee: entry_fee || null,
+        prizes: prizes || null,
+        format: format || null,
+        image_url: image_url || null,
       })
       .select()
       .single();
@@ -100,7 +119,20 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, name, n01_url, tournament_date, is_active } = body;
+    const {
+      id,
+      name,
+      n01_url,
+      tournament_date,
+      is_active,
+      dart_type,
+      category,
+      start_time,
+      entry_fee,
+      prizes,
+      format,
+      image_url,
+    } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -133,6 +165,13 @@ export async function PUT(request: NextRequest) {
     }
     if (tournament_date !== undefined) updates.tournament_date = tournament_date;
     if (is_active !== undefined) updates.is_active = is_active;
+    if (dart_type !== undefined) updates.dart_type = dart_type;
+    if (category !== undefined) updates.category = category || null;
+    if (start_time !== undefined) updates.start_time = start_time || null;
+    if (entry_fee !== undefined) updates.entry_fee = entry_fee || null;
+    if (prizes !== undefined) updates.prizes = prizes || null;
+    if (format !== undefined) updates.format = format || null;
+    if (image_url !== undefined) updates.image_url = image_url || null;
 
     const { data, error } = await supabase
       .from('tournaments')

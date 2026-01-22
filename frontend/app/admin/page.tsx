@@ -12,14 +12,38 @@ import {
   Lock,
   Eye,
   EyeOff,
+  Target,
+  Disc,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useTournaments } from '@/hooks/useTournaments';
-import type { Tournament, TournamentFormData } from '@/lib/types';
+import type { Tournament, TournamentFormData, DartType, TournamentCategory } from '@/lib/types';
 import { toDateString, cn } from '@/lib/utils';
+
+const defaultFormData: TournamentFormData = {
+  name: '',
+  n01_url: '',
+  tournament_date: toDateString(new Date()),
+  is_active: true,
+  dart_type: 'steel',
+  category: null,
+  start_time: null,
+  entry_fee: null,
+  prizes: null,
+  format: null,
+  image_url: null,
+};
+
+const categoryOptions: { value: TournamentCategory | ''; label: string }[] = [
+  { value: '', label: 'Nie określono' },
+  { value: 'indywidualny', label: 'Turniej indywidualny' },
+  { value: 'deblowy', label: 'Turniej deblowy' },
+  { value: 'triple_mieszane', label: 'Triple mieszane' },
+  { value: 'druzynowy', label: 'Turniej drużynowy' },
+];
 
 export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -31,12 +55,7 @@ export default function AdminPage() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingTournament, setEditingTournament] = useState<Tournament | null>(null);
-  const [formData, setFormData] = useState<TournamentFormData>({
-    name: '',
-    n01_url: '',
-    tournament_date: toDateString(new Date()),
-    is_active: true,
-  });
+  const [formData, setFormData] = useState<TournamentFormData>(defaultFormData);
   const [formError, setFormError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -89,10 +108,8 @@ export default function AdminPage() {
   const openAddForm = () => {
     setEditingTournament(null);
     setFormData({
-      name: '',
-      n01_url: '',
+      ...defaultFormData,
       tournament_date: toDateString(selectedDate),
-      is_active: true,
     });
     setFormError('');
     setIsFormOpen(true);
@@ -105,6 +122,13 @@ export default function AdminPage() {
       n01_url: tournament.n01_url,
       tournament_date: tournament.tournament_date,
       is_active: tournament.is_active,
+      dart_type: tournament.dart_type,
+      category: tournament.category,
+      start_time: tournament.start_time,
+      entry_fee: tournament.entry_fee,
+      prizes: tournament.prizes,
+      format: tournament.format,
+      image_url: tournament.image_url,
     });
     setFormError('');
     setIsFormOpen(true);
@@ -209,12 +233,12 @@ export default function AdminPage() {
                   placeholder="Hasło"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pr-10"
+                  className="pr-10 min-h-[44px]"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1"
                 >
                   {showPassword ? (
                     <EyeOff className="w-4 h-4" />
@@ -228,12 +252,12 @@ export default function AdminPage() {
                 <p className="text-sm text-destructive">{authError}</p>
               )}
 
-              <Button type="submit" className="w-full" disabled={isAuthLoading}>
+              <Button type="submit" className="w-full min-h-[44px]" disabled={isAuthLoading}>
                 {isAuthLoading ? 'Logowanie...' : 'Zaloguj'}
               </Button>
 
               <Link href="/" className="block">
-                <Button variant="ghost" className="w-full">
+                <Button variant="ghost" className="w-full min-h-[44px]">
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   Powrót do strony głównej
                 </Button>
@@ -246,28 +270,28 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen min-w-[320px]">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-background border-b">
-        <div className="container mx-auto px-4 py-4">
+        <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
               <Link href="/">
-                <Button variant="ghost" size="icon">
+                <Button variant="ghost" size="icon" className="min-h-[44px] min-w-[44px]">
                   <ArrowLeft className="w-4 h-4" />
                 </Button>
               </Link>
-              <h1 className="text-xl font-bold">Panel Administracyjny</h1>
+              <h1 className="text-lg sm:text-xl font-bold">Panel Admina</h1>
             </div>
 
-            <Button variant="outline" size="sm" onClick={handleLogout}>
+            <Button variant="outline" size="sm" onClick={handleLogout} className="min-h-[44px]">
               Wyloguj
             </Button>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-6">
+      <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-6">
         {/* Date selector and Add button */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
           <div>
@@ -278,11 +302,11 @@ export default function AdminPage() {
               type="date"
               value={toDateString(selectedDate)}
               onChange={(e) => setSelectedDate(new Date(e.target.value + 'T00:00:00'))}
-              className="w-auto"
+              className="w-auto min-h-[44px]"
             />
           </div>
 
-          <Button onClick={openAddForm}>
+          <Button onClick={openAddForm} className="min-h-[44px]">
             <Plus className="w-4 h-4 mr-2" />
             Dodaj turniej
           </Button>
@@ -311,15 +335,15 @@ export default function AdminPage() {
                 key={tournament.id}
                 className={cn(!tournament.is_active && 'opacity-60')}
               >
-                <CardContent className="p-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <CardContent className="p-3 sm:p-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="font-semibold truncate">
                           {tournament.name}
                         </h3>
                         {tournament.is_active ? (
-                          <span className="px-2 py-0.5 bg-green-500/10 text-green-700 text-xs rounded-full">
+                          <span className="px-2 py-0.5 bg-darts-green/10 text-darts-green text-xs rounded-full">
                             Aktywny
                           </span>
                         ) : (
@@ -327,18 +351,37 @@ export default function AdminPage() {
                             Nieaktywny
                           </span>
                         )}
+                        <span className={cn(
+                          'px-2 py-0.5 text-xs rounded-full flex items-center gap-1',
+                          tournament.dart_type === 'soft'
+                            ? 'bg-darts-soft/10 text-darts-soft'
+                            : 'bg-darts-steel/10 text-darts-steel'
+                        )}>
+                          {tournament.dart_type === 'soft' ? (
+                            <Disc className="w-3 h-3" />
+                          ) : (
+                            <Target className="w-3 h-3" />
+                          )}
+                          {tournament.dart_type === 'soft' ? 'Soft' : 'Steel'}
+                        </span>
                       </div>
                       <p className="text-sm text-muted-foreground truncate mt-1">
                         {tournament.n01_url}
                       </p>
+                      {tournament.start_time && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Start: {tournament.start_time}
+                        </p>
+                      )}
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 sm:gap-2">
                       <Button
                         variant="ghost"
                         size="icon"
                         onClick={() => handleToggleActive(tournament)}
                         title={tournament.is_active ? 'Dezaktywuj' : 'Aktywuj'}
+                        className="min-h-[44px] min-w-[44px]"
                       >
                         {tournament.is_active ? (
                           <PowerOff className="w-4 h-4" />
@@ -351,6 +394,7 @@ export default function AdminPage() {
                         size="icon"
                         onClick={() => openEditForm(tournament)}
                         title="Edytuj"
+                        className="min-h-[44px] min-w-[44px]"
                       >
                         <Edit className="w-4 h-4" />
                       </Button>
@@ -359,7 +403,7 @@ export default function AdminPage() {
                         size="icon"
                         onClick={() => handleDelete(tournament)}
                         title="Usuń"
-                        className="text-destructive hover:text-destructive"
+                        className="text-destructive hover:text-destructive min-h-[44px] min-w-[44px]"
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -373,8 +417,14 @@ export default function AdminPage() {
 
         {/* Form modal */}
         {isFormOpen && (
-          <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-            <Card className="w-full max-w-lg">
+          <div
+            className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-3 sm:p-4"
+            onClick={closeForm}
+          >
+            <Card
+              className="w-full max-w-lg max-h-[90vh] overflow-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
               <CardHeader>
                 <CardTitle>
                   {editingTournament ? 'Edytuj turniej' : 'Dodaj turniej'}
@@ -382,9 +432,10 @@ export default function AdminPage() {
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-4">
+                  {/* Podstawowe pola */}
                   <div>
                     <label className="block text-sm font-medium mb-1">
-                      Nazwa turnieju
+                      Nazwa turnieju *
                     </label>
                     <Input
                       type="text"
@@ -394,12 +445,13 @@ export default function AdminPage() {
                       }
                       placeholder="np. MP Seniorów 2026"
                       required
+                      className="min-h-[44px]"
                     />
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium mb-1">
-                      URL z n01darts.com
+                      URL z n01darts.com *
                     </label>
                     <Input
                       type="url"
@@ -409,23 +461,161 @@ export default function AdminPage() {
                       }
                       placeholder="https://n01darts.com/online/..."
                       required
+                      className="min-h-[44px]"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-1">
+                        Data turnieju *
+                      </label>
+                      <Input
+                        type="date"
+                        value={formData.tournament_date}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            tournament_date: e.target.value,
+                          })
+                        }
+                        required
+                        className="min-h-[44px]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-1">
+                        Godzina startu
+                      </label>
+                      <Input
+                        type="time"
+                        value={formData.start_time || ''}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            start_time: e.target.value || null,
+                          })
+                        }
+                        className="min-h-[44px]"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-1">
+                        Typ darta
+                      </label>
+                      <select
+                        value={formData.dart_type}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            dart_type: e.target.value as DartType,
+                          })
+                        }
+                        className="w-full min-h-[44px] px-3 py-2 bg-background border rounded-md"
+                      >
+                        <option value="steel">Steel Tip</option>
+                        <option value="soft">Soft Tip</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-1">
+                        Kategoria
+                      </label>
+                      <select
+                        value={formData.category || ''}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            category: (e.target.value as TournamentCategory) || null,
+                          })
+                        }
+                        className="w-full min-h-[44px] px-3 py-2 bg-background border rounded-md"
+                      >
+                        {categoryOptions.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-1">
+                        Wpisowe
+                      </label>
+                      <Input
+                        type="text"
+                        value={formData.entry_fee || ''}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            entry_fee: e.target.value || null,
+                          })
+                        }
+                        placeholder="np. 50 PLN"
+                        className="min-h-[44px]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-1">
+                        Format
+                      </label>
+                      <Input
+                        type="text"
+                        value={formData.format || ''}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            format: e.target.value || null,
+                          })
+                        }
+                        placeholder="np. Best of 5"
+                        className="min-h-[44px]"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Nagrody
+                    </label>
+                    <textarea
+                      value={formData.prizes || ''}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          prizes: e.target.value || null,
+                        })
+                      }
+                      placeholder="np. 1. miejsce: 500 PLN&#10;2. miejsce: 300 PLN"
+                      rows={3}
+                      className="w-full px-3 py-2 bg-background border rounded-md resize-none"
                     />
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium mb-1">
-                      Data turnieju
+                      URL grafiki
                     </label>
                     <Input
-                      type="date"
-                      value={formData.tournament_date}
+                      type="url"
+                      value={formData.image_url || ''}
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          tournament_date: e.target.value,
+                          image_url: e.target.value || null,
                         })
                       }
-                      required
+                      placeholder="https://..."
+                      className="min-h-[44px]"
                     />
                   </div>
 
@@ -440,7 +630,7 @@ export default function AdminPage() {
                           is_active: e.target.checked,
                         })
                       }
-                      className="w-4 h-4"
+                      className="w-5 h-5"
                     />
                     <label htmlFor="is_active" className="text-sm">
                       Turniej aktywny
@@ -451,16 +641,17 @@ export default function AdminPage() {
                     <p className="text-sm text-destructive">{formError}</p>
                   )}
 
-                  <div className="flex gap-2 justify-end">
+                  <div className="flex gap-2 justify-end pt-2">
                     <Button
                       type="button"
                       variant="outline"
                       onClick={closeForm}
                       disabled={isSubmitting}
+                      className="min-h-[44px]"
                     >
                       Anuluj
                     </Button>
-                    <Button type="submit" disabled={isSubmitting}>
+                    <Button type="submit" disabled={isSubmitting} className="min-h-[44px]">
                       {isSubmitting
                         ? 'Zapisywanie...'
                         : editingTournament

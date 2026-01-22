@@ -4,12 +4,23 @@
 
 export type MatchStatus = 'active' | 'pending' | 'finished' | 'walkover';
 
+export type DartType = 'soft' | 'steel';
+
+export type TournamentCategory = 'indywidualny' | 'deblowy' | 'triple_mieszane' | 'druzynowy';
+
 export interface Tournament {
   id: string;
   name: string;
   n01_url: string;
   tournament_date: string;
   is_active: boolean;
+  dart_type: DartType;
+  category: TournamentCategory | null;
+  start_time: string | null;
+  entry_fee: string | null;
+  prizes: string | null;
+  format: string | null;
+  image_url: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -46,6 +57,13 @@ export interface TournamentFormData {
   n01_url: string;
   tournament_date: string;
   is_active: boolean;
+  dart_type: DartType;
+  category: TournamentCategory | null;
+  start_time: string | null;
+  entry_fee: string | null;
+  prizes: string | null;
+  format: string | null;
+  image_url: string | null;
 }
 
 export interface AdminAuthResponse {

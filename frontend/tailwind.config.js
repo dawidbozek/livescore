@@ -50,12 +50,19 @@ module.exports = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          foreground: "hsl(var(--success-foreground))",
+        },
         // Custom darts colors
         darts: {
-          red: "#dc2626",
-          green: "#16a34a",
+          primary: "#C1272D",
+          "primary-hover": "#A01F25",
+          green: "#15803D",
           gold: "#ca8a04",
           blue: "#2563eb",
+          soft: "#3B82F6",
+          steel: "#6B7280",
         },
       },
       borderRadius: {

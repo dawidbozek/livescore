@@ -5,8 +5,9 @@ import type { Tournament, TournamentsApiResponse } from '@/lib/types';
 import { toDateString } from '@/lib/utils';
 
 interface UseTournamentsOptions {
-  date?: Date;
+  date?: Date | null;
   includeInactive?: boolean;
+  activeOnly?: boolean;
 }
 
 interface UseTournamentsReturn {
@@ -19,7 +20,7 @@ interface UseTournamentsReturn {
 export function useTournaments(
   options: UseTournamentsOptions = {}
 ): UseTournamentsReturn {
-  const { date, includeInactive = false } = options;
+  const { date, includeInactive = false, activeOnly = false } = options;
 
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -36,8 +37,13 @@ export function useTournaments(
 
     try {
       const params = new URLSearchParams();
+
+      // Jeśli activeOnly=true i brak daty, pobierz wszystkie aktywne turnieje
+      // Jeśli jest data, pobierz dla konkretnego dnia
       if (date) {
         params.set('date', toDateString(date));
+      } else if (activeOnly) {
+        params.set('active_only', 'true');
       }
 
       // Użyj endpointu admin dla wszystkich turniejów lub publicznego dla aktywnych
@@ -65,7 +71,7 @@ export function useTournaments(
     } finally {
       setIsLoading(false);
     }
-  }, [date, includeInactive]);
+  }, [date, includeInactive, activeOnly]);
 
   useEffect(() => {
     setIsLoading(true);

@@ -5,14 +5,17 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const date = searchParams.get('date');
+    const activeOnly = searchParams.get('active_only') === 'true';
 
     let query = supabase
       .from('tournaments')
       .select('*')
       .eq('is_active', true)
-      .order('created_at', { ascending: false });
+      .order('tournament_date', { ascending: false });
 
-    if (date) {
+    // Jeśli activeOnly=true, nie filtruj po dacie - pobierz wszystkie aktywne turnieje
+    // Jeśli jest data, filtruj po niej
+    if (date && !activeOnly) {
       query = query.eq('tournament_date', date);
     }
 
