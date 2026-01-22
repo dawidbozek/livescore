@@ -77,7 +77,7 @@ export default function HomePage() {
 
       {/* Top bar with refresh and admin */}
       <div className="sticky top-14 sm:top-16 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
-        <div className="container mx-auto px-3 sm:px-4 py-2">
+        <div className="container mx-auto container-responsive sm:px-4 py-2">
           <div className="flex items-center justify-between gap-2">
             {lastUpdated && (
               <span className="text-xs text-muted-foreground">
@@ -112,7 +112,7 @@ export default function HomePage() {
         </div>
       </div>
 
-      <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-6">
+      <main className="container mx-auto container-responsive sm:px-4 py-4 sm:py-6">
         <div className="grid lg:grid-cols-[300px,1fr] gap-4 sm:gap-6">
           {/* Sidebar */}
           <aside className="space-y-4 sm:space-y-6">
@@ -246,7 +246,7 @@ export default function HomePage() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t mt-12 py-6 px-3 sm:px-4 text-center text-sm text-muted-foreground">
+      <footer className="border-t mt-12 py-6 container-responsive sm:px-4 text-center text-sm text-muted-foreground">
         <p>Darts Live Score - System wyników na żywo</p>
         <p className="mt-1">Dane aktualizowane co 15 sekund</p>
       </footer>

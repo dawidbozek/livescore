@@ -53,26 +53,27 @@ export function DateSelector({ selectedDate, onDateChange }: DateSelectorProps) 
   return (
     <div className="flex flex-col gap-3 p-3 sm:p-4 bg-card rounded-lg border">
       {/* Quick buttons */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex gap-2">
         <Button
           variant={selectedDate === null ? 'default' : 'outline'}
-          size="sm"
+          size="icon"
           onClick={selectAllActive}
           className={cn(
-            'gap-1.5 min-h-[44px]',
+            'min-h-[44px] min-w-[44px]',
             selectedDate === null && 'bg-darts-green hover:bg-darts-green/90'
           )}
+          aria-label="Wszystkie aktywne"
+          title="Wszystkie aktywne"
         >
-          <Zap className="w-4 h-4" />
-          Wszystkie aktywne
+          <Zap className="w-5 h-5" />
         </Button>
         <Button
           variant={selectedDate && toDateString(selectedDate) === toDateString(today) ? 'default' : 'outline'}
           size="sm"
           onClick={selectToday}
-          className="min-h-[44px]"
+          className="min-h-[44px] px-3"
         >
-          Dzisiaj
+          Dziś
         </Button>
       </div>
 

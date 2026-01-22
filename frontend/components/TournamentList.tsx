@@ -5,7 +5,7 @@ import { Trophy, Info, Target, Disc } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { TournamentInfoModal } from './TournamentInfoModal';
 import type { Tournament } from '@/lib/types';
-import { cn } from '@/lib/utils';
+import { cn, formatTime } from '@/lib/utils';
 
 interface TournamentListProps {
   tournaments: Tournament[];
@@ -103,7 +103,7 @@ export function TournamentList({
                     {getDartTypeLabel(tournament.dart_type)}
                   </span>
                   {tournament.start_time && (
-                    <span>{tournament.start_time}</span>
+                    <span>{formatTime(tournament.start_time)}</span>
                   )}
                 </div>
               </div>

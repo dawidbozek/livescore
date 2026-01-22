@@ -10,16 +10,22 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
- * Formatuje datę do wyświetlenia
+ * Formatuje datę do wyświetlenia (dd.mm)
  */
 export function formatDate(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date;
-  return d.toLocaleDateString('pl-PL', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
+  const day = d.getDate().toString().padStart(2, '0');
+  const month = (d.getMonth() + 1).toString().padStart(2, '0');
+  return `${day}.${month}`;
+}
+
+/**
+ * Formatuje czas (HH:MM bez sekund)
+ */
+export function formatTime(time: string | null): string {
+  if (!time) return '';
+  // Usuń sekundy jeśli są (19:00:00 -> 19:00)
+  return time.substring(0, 5);
 }
 
 /**

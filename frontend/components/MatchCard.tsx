@@ -48,20 +48,10 @@ export function MatchCard({ match, showTournament = false }: MatchCardProps) {
       )}
     >
       <CardContent className="p-3 sm:p-4">
-        {/* Header: Status and Station */}
+        {/* Header: Station and Status */}
         <div className="flex items-center justify-between mb-3 gap-2">
-          <div
-            className={cn(
-              'flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium border',
-              status.className
-            )}
-          >
-            <span className={cn('w-2 h-2 rounded-full', status.dotClassName)} />
-            {status.label}
-          </div>
-
-          {/* Station number - circle design for active */}
-          {match.station_number && (
+          {/* Station number - circle design for active (left side) */}
+          {match.station_number ? (
             <div className={cn(
               'flex items-center justify-center font-bold',
               isActive
@@ -77,7 +67,20 @@ export function MatchCard({ match, showTournament = false }: MatchCardProps) {
                 </>
               )}
             </div>
+          ) : (
+            <div />
           )}
+
+          {/* Status badge (right side) */}
+          <div
+            className={cn(
+              'flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium border',
+              status.className
+            )}
+          >
+            <span className={cn('w-2 h-2 rounded-full', status.dotClassName)} />
+            {status.label}
+          </div>
         </div>
 
         {/* Players and Score */}
@@ -86,7 +89,7 @@ export function MatchCard({ match, showTournament = false }: MatchCardProps) {
           <div className="flex-1 min-w-0 text-right">
             <p
               className={cn(
-                'font-semibold truncate text-sm sm:text-base',
+                'font-semibold truncate text-sm sm:text-base player-name',
                 match.player1_score > match.player2_score && 'text-darts-green'
               )}
             >
@@ -101,7 +104,7 @@ export function MatchCard({ match, showTournament = false }: MatchCardProps) {
           )}>
             <span
               className={cn(
-                'text-lg sm:text-xl font-bold tabular-nums',
+                'text-lg sm:text-xl font-bold tabular-nums score-display',
                 match.player1_score > match.player2_score && 'text-darts-green'
               )}
             >
@@ -110,7 +113,7 @@ export function MatchCard({ match, showTournament = false }: MatchCardProps) {
             <span className="text-muted-foreground">:</span>
             <span
               className={cn(
-                'text-lg sm:text-xl font-bold tabular-nums',
+                'text-lg sm:text-xl font-bold tabular-nums score-display',
                 match.player2_score > match.player1_score && 'text-darts-green'
               )}
             >
@@ -122,7 +125,7 @@ export function MatchCard({ match, showTournament = false }: MatchCardProps) {
           <div className="flex-1 min-w-0">
             <p
               className={cn(
-                'font-semibold truncate text-sm sm:text-base',
+                'font-semibold truncate text-sm sm:text-base player-name',
                 match.player2_score > match.player1_score && 'text-darts-green'
               )}
             >

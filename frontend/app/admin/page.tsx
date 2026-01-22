@@ -52,7 +52,7 @@ export default function AdminPage() {
   const [authError, setAuthError] = useState('');
   const [isAuthLoading, setIsAuthLoading] = useState(false);
 
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingTournament, setEditingTournament] = useState<Tournament | null>(null);
   const [formData, setFormData] = useState<TournamentFormData>(defaultFormData);
@@ -109,7 +109,7 @@ export default function AdminPage() {
     setEditingTournament(null);
     setFormData({
       ...defaultFormData,
-      tournament_date: toDateString(selectedDate),
+      tournament_date: selectedDate ? toDateString(selectedDate) : toDateString(new Date()),
     });
     setFormError('');
     setIsFormOpen(true);
@@ -294,16 +294,27 @@ export default function AdminPage() {
       <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-6">
         {/* Date selector and Add button */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Wybierz datę turnieju
-            </label>
-            <Input
-              type="date"
-              value={toDateString(selectedDate)}
-              onChange={(e) => setSelectedDate(new Date(e.target.value + 'T00:00:00'))}
-              className="w-auto min-h-[44px]"
-            />
+          <div className="flex items-end gap-2">
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Filtruj po dacie
+              </label>
+              <div className="flex gap-2">
+                <Button
+                  variant={selectedDate === null ? 'default' : 'outline'}
+                  onClick={() => setSelectedDate(null)}
+                  className="min-h-[44px]"
+                >
+                  Wszystkie
+                </Button>
+                <Input
+                  type="date"
+                  value={selectedDate ? toDateString(selectedDate) : ''}
+                  onChange={(e) => e.target.value ? setSelectedDate(new Date(e.target.value + 'T00:00:00')) : setSelectedDate(null)}
+                  className="w-auto min-h-[44px]"
+                />
+              </div>
+            </div>
           </div>
 
           <Button onClick={openAddForm} className="min-h-[44px]">

@@ -105,3 +105,46 @@
 .skeleton {
   @apply animate-pulse bg-muted rounded;
 }
+
+/* Responsive container margins */
+/* At very small screens (< 340px), minimal padding */
+@media (max-width: 339px) {
+  .container-responsive {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+}
+
+/* At screens > 340px but < 640px (sm), add 10px margins */
+@media (min-width: 340px) and (max-width: 639px) {
+  .container-responsive {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+}
+
+/* Truncate with smaller font fallback */
+.text-truncate-responsive {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Player names - auto-size based on container */
+@media (max-width: 380px) {
+  .player-name {
+    font-size: 0.8125rem; /* 13px */
+  }
+  .score-display {
+    font-size: 1rem; /* 16px */
+  }
+}
+
+@media (max-width: 340px) {
+  .player-name {
+    font-size: 0.75rem; /* 12px */
+  }
+  .score-display {
+    font-size: 0.875rem; /* 14px */
+  }
+}
