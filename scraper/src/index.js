@@ -4,7 +4,12 @@
  */
 
 import 'dotenv/config';
-import { getActiveTournaments, upsertMatches } from './database.js';
+import {
+    getActiveTournaments,
+    upsertMatches,
+    upsertGroups,
+    upsertGroupMatches
+} from './database.js';
 import { scrapeTournament, initBrowser, closeBrowser } from './scraper.js';
 import { log, sleep, formatDate, ScraperStats } from './utils.js';
 
@@ -43,13 +48,44 @@ async function scrapeAllTournaments() {
             try {
                 log(`Scraping: ${tournament.name} (${tournament.n01_url})`);
 
-                const matches = await scrapeTournament(tournament.n01_url);
+                // Przekaż opcje scrapera
+                const scraperOptions = {
+                    isSteelType: tournament.dart_type === 'steel',
+                    tournamentFormat: tournament.tournament_format || 'single_ko'
+                };
 
+                const { matches, groups } = await scrapeTournament(tournament.n01_url, scraperOptions);
+
+                let totalItems = 0;
+
+                // Zapisz mecze K.O. do bazy
                 if (matches.length > 0) {
-                    // Zapisz mecze do bazy
                     await upsertMatches(tournament.id, matches);
-                    log(`Saved ${matches.length} matches for ${tournament.name}`);
-                    stats.recordScrape(tournament.id, true, matches.length);
+                    log(`Saved ${matches.length} K.O. matches for ${tournament.name}`);
+                    totalItems += matches.length;
+                }
+
+                // Zapisz grupy i mecze grupowe
+                if (groups && groups.length > 0) {
+                    const savedGroups = await upsertGroups(tournament.id, groups);
+                    log(`Saved ${savedGroups.length} groups for ${tournament.name}`);
+
+                    // Zapisz mecze dla każdej grupy
+                    for (let i = 0; i < savedGroups.length; i++) {
+                        const savedGroup = savedGroups[i];
+                        const originalGroup = groups.find(g => g.groupNumber === savedGroup.group_number);
+
+                        if (originalGroup && originalGroup.matches && originalGroup.matches.length > 0) {
+                            await upsertGroupMatches(savedGroup.id, tournament.id, originalGroup.matches);
+                            totalItems += originalGroup.matches.length;
+                        }
+                    }
+
+                    log(`Saved ${groups.reduce((sum, g) => sum + g.matches.length, 0)} group matches for ${tournament.name}`);
+                }
+
+                if (totalItems > 0) {
+                    stats.recordScrape(tournament.id, true, totalItems);
                 } else {
                     log(`No matches found for ${tournament.name}`, 'warn');
                     stats.recordScrape(tournament.id, true, 0);

@@ -3,7 +3,16 @@
  */
 
 import puppeteer from 'puppeteer';
-import { parseAllMatches, isValidN01Url } from './parser.js';
+import {
+    parseAllMatches,
+    isValidN01Url,
+    parseGroupStationNumber,
+    parseGroupMatchScore,
+    parsePlayerAverage,
+    calculateGroupMatches,
+    getRefereeForMatch,
+    REFEREE_SCHEMES
+} from './parser.js';
 import { log, sleep } from './utils.js';
 
 let browser = null;
@@ -48,14 +57,18 @@ export async function closeBrowser() {
 }
 
 /**
- * Scrapuje stronę turnieju i zwraca dane meczów
+ * Scrapuje stronę turnieju i zwraca dane meczów (i grup jeśli są)
  * @param {string} url - URL strony turnieju n01darts.com
- * @returns {Promise<Array>} Lista meczów
+ * @param {Object} options - Opcje scrapowania
+ * @param {boolean} options.isSteelType - Czy to turniej Steel (dla sędziów)
+ * @param {string} options.tournamentFormat - Format turnieju ('single_ko' lub 'groups_ko')
+ * @returns {Promise<Object>} Obiekt z meczami i grupami { matches: Array, groups: Array }
  */
-export async function scrapeTournament(url) {
+export async function scrapeTournament(url, options = {}) {
+    const { isSteelType = true, tournamentFormat = 'single_ko' } = options;
     if (!isValidN01Url(url)) {
         log(`Invalid n01darts.com URL: ${url}`, 'error');
-        return [];
+        return { matches: [], groups: [] };
     }
 
     const browserInstance = await initBrowser();
@@ -177,16 +190,241 @@ export async function scrapeTournament(url) {
 
         log(`Parsed ${matches.length} valid matches (active: ${matches.filter(m => m.status === 'active').length}, pending: ${matches.filter(m => m.status === 'pending').length}, finished: ${matches.filter(m => m.status === 'finished').length})`);
 
-        return matches;
+        // Sprawdź czy są grupy (dla turniejów z formatem groups_ko)
+        let groups = [];
+        const hasGroups = await hasGroupTables(page);
+
+        if (hasGroups || tournamentFormat === 'groups_ko') {
+            log('Detected group tables, scraping groups...');
+            groups = await scrapeGroups(page, isSteelType);
+            log(`Scraped ${groups.length} groups with ${groups.reduce((sum, g) => sum + g.matches.length, 0)} group matches`);
+        }
+
+        return { matches, groups };
 
     } catch (error) {
         log(`Error scraping ${url}: ${error.message}`, 'error');
-        return [];
+        return { matches: [], groups: [] };
     } finally {
         if (page) {
             await page.close();
         }
     }
+}
+
+/**
+ * Scrapuje grupy z turnieju grupowego
+ * @param {Page} page - Strona Puppeteer
+ * @param {boolean} isSteelType - Czy to turniej Steel (dla sędziów)
+ * @returns {Promise<Array>} Lista grup z meczami
+ */
+async function scrapeGroups(page, isSteelType = true) {
+    log('Scraping group tables...');
+
+    const groups = await page.$$eval('.rr_table_container', (containers, isSteelType) => {
+        return containers.map((container, groupIndex) => {
+            const table = container.querySelector('.rr_table');
+            if (!table) return null;
+
+            // Pobierz nazwę grupy z subtitle (na pierwszej komórce wyniku)
+            const firstResultCell = table.querySelector('.rr_result[subtitle]');
+            const groupName = firstResultCell?.getAttribute('subtitle') || `Grupa ${groupIndex + 1}`;
+
+            // Pobierz memo (numer tarczy / schemat sędziów)
+            const memoEl = container.querySelector('.rr_memo');
+            const memoText = memoEl?.textContent?.trim() || '';
+
+            // Parsuj numer tarczy
+            const stationMatch = memoText.match(/(?:tarcza|board)\s*(\d+)/i);
+            const stationNumber = stationMatch ? parseInt(stationMatch[1], 10) : null;
+
+            // Pobierz listę graczy
+            const playerRows = table.querySelectorAll('.rr_body .rr_player');
+            const players = [];
+
+            playerRows.forEach((row, rowIndex) => {
+                const nameEl = row.querySelector('.rr_name .entry_name');
+                const playerName = nameEl?.textContent?.trim() || '';
+
+                // ID gracza z atrybutu tpid
+                const nameCell = row.querySelector('.rr_name[tpid]');
+                const playerId = nameCell?.getAttribute('tpid') || null;
+
+                // Średnia gracza (dla Steel) - .t_avg
+                const avgEl = row.querySelector('.t_avg');
+                const avgText = avgEl?.textContent?.trim() || '';
+                const avgMatch = avgText.match(/\((\d+\.?\d*)\)/);
+                const average = avgMatch ? parseFloat(avgMatch[1]) : null;
+
+                // Pozycja w tabeli (rank)
+                const rankEl = row.querySelector('.rr_rank');
+                const rank = rankEl ? parseInt(rankEl.textContent?.trim()) || (rowIndex + 1) : (rowIndex + 1);
+
+                // Wyniki W-L (wins-losses)
+                const winEl = row.querySelector('.rr_win');
+                const winText = winEl?.textContent?.trim() || '0 - 0';
+                const winMatch = winText.match(/(\d+)\s*-\s*(\d+)/);
+                const wins = winMatch ? parseInt(winMatch[1]) : 0;
+                const losses = winMatch ? parseInt(winMatch[2]) : 0;
+
+                // Legs (dla statystyk)
+                const legEl = row.querySelector('.rr_leg');
+                const legText = legEl?.textContent?.trim() || '0 - 0';
+                const legMatch = legText.match(/(\d+)\s*-\s*(\d+)/);
+                const legsWon = legMatch ? parseInt(legMatch[1]) : 0;
+                const legsLost = legMatch ? parseInt(legMatch[2]) : 0;
+
+                if (playerName) {
+                    players.push({
+                        id: playerId,
+                        name: playerName,
+                        position: rowIndex + 1,
+                        wins,
+                        losses,
+                        legsWon,
+                        legsLost,
+                        rank,
+                        average,
+                    });
+                }
+            });
+
+            // Parsuj mecze z tabeli (macierz wyników)
+            const matches = [];
+            let completedMatches = 0;
+
+            // Iteruj przez każdy wiersz gracza i każdą komórkę wyniku
+            playerRows.forEach((row, rowIndex) => {
+                const resultCells = row.querySelectorAll('.rr_result');
+
+                resultCells.forEach((cell, colIndex) => {
+                    // Pomiń przekątną (rr_none) i już przetworzone mecze (tylko górna połowa macierzy)
+                    if (cell.classList.contains('rr_none') || colIndex <= rowIndex) {
+                        return;
+                    }
+
+                    // Określ status meczu
+                    const hasFixGame = cell.classList.contains('fix_game');
+                    const hasRrIdx = cell.querySelector('.rr_idx') !== null;
+
+                    // Wykryj aktywny mecz (czerwone tło dla Steel)
+                    const style = window.getComputedStyle(cell);
+                    const bgColor = style.backgroundColor;
+                    // Jasnoczerwone tło - np. rgb(255, 200, 200) lub podobne
+                    const hasActiveBackground = bgColor && bgColor.includes('rgb') &&
+                        !bgColor.includes('rgba(0, 0, 0, 0)') &&
+                        bgColor !== 'rgb(255, 255, 255)' &&
+                        bgColor !== 'rgba(0, 0, 0, 0)' &&
+                        cell.style.backgroundColor !== '';
+
+                    // Pobierz wynik z komórki
+                    const cellText = cell.textContent?.trim() || '';
+                    const scoreMatch = cellText.match(/(\d+)\s*[-–]\s*(\d+)/);
+                    const player1Score = scoreMatch ? parseInt(scoreMatch[1]) : 0;
+                    const player2Score = scoreMatch ? parseInt(scoreMatch[2]) : 0;
+
+                    // Średnia w meczu (dla Steel)
+                    const matchAvgEl = cell.querySelector('.r_avg');
+                    const matchAvgText = matchAvgEl?.textContent?.trim() || '';
+                    const matchAvgMatch = matchAvgText.match(/\((\d+\.?\d*)\)/);
+                    const matchAverage = matchAvgMatch ? parseFloat(matchAvgMatch[1]) : null;
+
+                    // Numer kolejności meczu (dla Soft)
+                    const idxEl = cell.querySelector('.rr_idx');
+                    const matchOrder = idxEl ? parseInt(idxEl.textContent?.trim()) || null : null;
+
+                    // Status meczu
+                    let status = 'pending';
+                    if (hasFixGame) {
+                        status = 'finished';
+                        completedMatches++;
+                    } else if (hasActiveBackground) {
+                        status = 'active';
+                    }
+
+                    const player1 = players[rowIndex];
+                    const player2 = players[colIndex];
+
+                    if (player1 && player2) {
+                        matches.push({
+                            player1Name: player1.name,
+                            player2Name: player2.name,
+                            player1Id: player1.id,
+                            player2Id: player2.id,
+                            player1Score,
+                            player2Score,
+                            matchOrder,
+                            status,
+                            matchAverage,
+                            player1Position: rowIndex + 1,
+                            player2Position: colIndex + 1,
+                        });
+                    }
+                });
+            });
+
+            // Oblicz całkowitą liczbę meczów
+            const totalMatches = (players.length * (players.length - 1)) / 2;
+
+            // Status grupy
+            let groupStatus = 'pending';
+            if (completedMatches === totalMatches && totalMatches > 0) {
+                groupStatus = 'finished';
+            } else if (matches.some(m => m.status === 'active')) {
+                groupStatus = 'active';
+            } else if (completedMatches > 0) {
+                groupStatus = 'active'; // W trakcie
+            }
+
+            return {
+                groupNumber: groupIndex + 1,
+                groupName,
+                stationNumber,
+                memoText,
+                players,
+                matches,
+                totalMatches,
+                completedMatches,
+                status: groupStatus,
+            };
+        }).filter(g => g !== null);
+    }, isSteelType);
+
+    log(`Found ${groups.length} groups`);
+
+    // Przypisz sędziów dla turniejów Steel
+    if (isSteelType) {
+        groups.forEach(group => {
+            const scheme = REFEREE_SCHEMES[group.players.length];
+            if (scheme) {
+                group.matches.forEach((match, idx) => {
+                    // Znajdź odpowiedni mecz w schemacie
+                    const schemeMatch = scheme.find(s =>
+                        (s[0] === match.player1Position && s[1] === match.player2Position) ||
+                        (s[0] === match.player2Position && s[1] === match.player1Position)
+                    );
+
+                    if (schemeMatch) {
+                        const refereePosition = schemeMatch[2];
+                        const referee = group.players.find(p => p.position === refereePosition);
+                        match.referee = referee?.name || null;
+                        match.refereePosition = refereePosition;
+                    }
+                });
+            }
+        });
+    }
+
+    return groups;
+}
+
+/**
+ * Sprawdza czy strona turnieju zawiera grupy
+ * @param {Page} page - Strona Puppeteer
+ * @returns {Promise<boolean>} Czy są grupy
+ */
+async function hasGroupTables(page) {
+    return await page.$$eval('.rr_table_container', containers => containers.length > 0);
 }
 
 /**

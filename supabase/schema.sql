@@ -17,10 +17,12 @@ CREATE TABLE IF NOT EXISTS tournaments (
     prizes TEXT,
     format VARCHAR(100),
     image_url TEXT,
+    tournament_format VARCHAR(20) DEFAULT 'single_ko',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     CONSTRAINT check_dart_type CHECK (dart_type IN ('soft', 'steel')),
-    CONSTRAINT check_category CHECK (category IS NULL OR category IN ('indywidualny', 'deblowy', 'triple_mieszane', 'druzynowy'))
+    CONSTRAINT check_category CHECK (category IS NULL OR category IN ('indywidualny', 'deblowy', 'triple_mieszane', 'druzynowy')),
+    CONSTRAINT check_tournament_format CHECK (tournament_format IN ('single_ko', 'groups_ko'))
 );
 
 -- Tabela meczów
@@ -209,3 +211,102 @@ $$ LANGUAGE plpgsql;
 
 -- ALTER TABLE tournaments
 -- ADD CONSTRAINT check_category CHECK (category IS NULL OR category IN ('indywidualny', 'deblowy', 'triple_mieszane', 'druzynowy'));
+
+-- =============================================
+-- MIGRACJA v3 - Format turnieju (Grupy + K.O.)
+-- Wykonaj poniższe komendy ręcznie w Supabase SQL Editor
+-- =============================================
+
+-- Dodaj kolumnę tournament_format do tournaments
+-- ALTER TABLE tournaments
+-- ADD COLUMN IF NOT EXISTS tournament_format VARCHAR(20) DEFAULT 'single_ko';
+
+-- ALTER TABLE tournaments
+-- ADD CONSTRAINT check_tournament_format CHECK (tournament_format IN ('single_ko', 'groups_ko'));
+
+-- =============================================
+-- Tabela grup (dla turniejów z formatem groups_ko)
+-- =============================================
+CREATE TABLE IF NOT EXISTS groups (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    tournament_id UUID NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+    group_number INTEGER NOT NULL,
+    group_name VARCHAR(50) NOT NULL,
+    station_number INTEGER,
+    players JSONB NOT NULL DEFAULT '[]',
+    total_matches INTEGER DEFAULT 0,
+    completed_matches INTEGER DEFAULT 0,
+    status VARCHAR(50) DEFAULT 'pending' CHECK (status IN ('active', 'pending', 'finished')),
+    referee_scheme TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(tournament_id, group_number)
+);
+
+-- Tabela meczów grupowych
+CREATE TABLE IF NOT EXISTS group_matches (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+    tournament_id UUID NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+    match_order INTEGER NOT NULL,
+    player1_name VARCHAR(255) NOT NULL,
+    player2_name VARCHAR(255) NOT NULL,
+    player1_id VARCHAR(50),
+    player2_id VARCHAR(50),
+    player1_score INTEGER DEFAULT 0,
+    player2_score INTEGER DEFAULT 0,
+    referee VARCHAR(255),
+    status VARCHAR(50) DEFAULT 'pending' CHECK (status IN ('active', 'pending', 'finished')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(group_id, match_order)
+);
+
+-- Indeksy dla grup
+CREATE INDEX IF NOT EXISTS idx_groups_tournament_id ON groups(tournament_id);
+CREATE INDEX IF NOT EXISTS idx_groups_status ON groups(status);
+CREATE INDEX IF NOT EXISTS idx_group_matches_group_id ON group_matches(group_id);
+CREATE INDEX IF NOT EXISTS idx_group_matches_tournament_id ON group_matches(tournament_id);
+CREATE INDEX IF NOT EXISTS idx_group_matches_status ON group_matches(status);
+
+-- Trigger dla groups
+DROP TRIGGER IF EXISTS update_groups_updated_at ON groups;
+CREATE TRIGGER update_groups_updated_at
+    BEFORE UPDATE ON groups
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- Trigger dla group_matches
+DROP TRIGGER IF EXISTS update_group_matches_updated_at ON group_matches;
+CREATE TRIGGER update_group_matches_updated_at
+    BEFORE UPDATE ON group_matches
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- RLS dla groups
+ALTER TABLE groups ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow public read access to groups" ON groups;
+CREATE POLICY "Allow public read access to groups"
+ON groups FOR SELECT
+USING (true);
+
+DROP POLICY IF EXISTS "Allow service role full access to groups" ON groups;
+CREATE POLICY "Allow service role full access to groups"
+ON groups FOR ALL
+USING (auth.role() = 'service_role')
+WITH CHECK (auth.role() = 'service_role');
+
+-- RLS dla group_matches
+ALTER TABLE group_matches ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow public read access to group_matches" ON group_matches;
+CREATE POLICY "Allow public read access to group_matches"
+ON group_matches FOR SELECT
+USING (true);
+
+DROP POLICY IF EXISTS "Allow service role full access to group_matches" ON group_matches;
+CREATE POLICY "Allow service role full access to group_matches"
+ON group_matches FOR ALL
+USING (auth.role() = 'service_role')
+WITH CHECK (auth.role() = 'service_role');

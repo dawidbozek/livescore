@@ -1,6 +1,6 @@
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import type { Match, GroupedMatches } from './types';
+import type { Match, GroupedMatches, Group, GroupedGroups } from './types';
 
 /**
  * Łączy klasy CSS z obsługą Tailwind
@@ -143,6 +143,34 @@ export function containsText(text: string, search: string): boolean {
  */
 export function sortByStation(matches: Match[]): Match[] {
   return [...matches].sort((a, b) => {
+    if (a.station_number === null && b.station_number === null) return 0;
+    if (a.station_number === null) return 1;
+    if (b.station_number === null) return -1;
+    return a.station_number - b.station_number;
+  });
+}
+
+/**
+ * Grupuje grupy według statusu
+ */
+export function groupGroupsByStatus(groups: Group[]): GroupedGroups {
+  return {
+    active: groups.filter((g) => g.status === 'active'),
+    pending: groups.filter((g) => g.status === 'pending'),
+    finished: groups.filter((g) => g.status === 'finished'),
+  };
+}
+
+/**
+ * Sortuje grupy według numeru tarczy (aktywne pierwsze)
+ */
+export function sortGroupsByStation(groups: Group[]): Group[] {
+  return [...groups].sort((a, b) => {
+    // Najpierw aktywne
+    if (a.status === 'active' && b.status !== 'active') return -1;
+    if (a.status !== 'active' && b.status === 'active') return 1;
+
+    // Potem po numerze tarczy
     if (a.station_number === null && b.station_number === null) return 0;
     if (a.station_number === null) return 1;
     if (b.station_number === null) return -1;

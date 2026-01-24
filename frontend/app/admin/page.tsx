@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useTournaments } from '@/hooks/useTournaments';
-import type { Tournament, TournamentFormData, DartType, TournamentCategory } from '@/lib/types';
+import type { Tournament, TournamentFormData, DartType, TournamentCategory, TournamentFormat } from '@/lib/types';
 import { toDateString, cn } from '@/lib/utils';
 
 const defaultFormData: TournamentFormData = {
@@ -35,7 +35,13 @@ const defaultFormData: TournamentFormData = {
   prizes: null,
   format: null,
   image_url: null,
+  tournament_format: 'single_ko',
 };
+
+const tournamentFormatOptions: { value: TournamentFormat; label: string }[] = [
+  { value: 'single_ko', label: 'Single K.O.' },
+  { value: 'groups_ko', label: 'Grupy + Single K.O.' },
+];
 
 const categoryOptions: { value: TournamentCategory | ''; label: string }[] = [
   { value: '', label: 'Nie określono' },
@@ -129,6 +135,7 @@ export default function AdminPage() {
       prizes: tournament.prizes,
       format: tournament.format,
       image_url: tournament.image_url,
+      tournament_format: tournament.tournament_format || 'single_ko',
     });
     setFormError('');
     setIsFormOpen(true);
@@ -375,6 +382,11 @@ export default function AdminPage() {
                           )}
                           {tournament.dart_type === 'soft' ? 'Soft' : 'Steel'}
                         </span>
+                        {tournament.tournament_format === 'groups_ko' && (
+                          <span className="px-2 py-0.5 bg-purple-500/10 text-purple-600 text-xs rounded-full">
+                            Grupy + K.O.
+                          </span>
+                        )}
                       </div>
                       <p className="text-sm text-muted-foreground truncate mt-1">
                         {tournament.n01_url}
@@ -554,6 +566,34 @@ export default function AdminPage() {
                         ))}
                       </select>
                     </div>
+                  </div>
+
+                  {/* Format turnieju - Single K.O. vs Grupy + K.O. */}
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Format turnieju
+                    </label>
+                    <select
+                      value={formData.tournament_format}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          tournament_format: e.target.value as TournamentFormat,
+                        })
+                      }
+                      className="w-full min-h-[44px] px-3 py-2 bg-background border rounded-md"
+                    >
+                      {tournamentFormatOptions.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                    {formData.tournament_format === 'groups_ko' && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Turniej z fazą grupową + drabinką K.O. Scraper automatycznie wykryje grupy.
+                      </p>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">

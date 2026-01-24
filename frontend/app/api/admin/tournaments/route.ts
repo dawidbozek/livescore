@@ -55,6 +55,7 @@ export async function POST(request: NextRequest) {
       prizes,
       format,
       image_url,
+      tournament_format,
     } = body;
 
     if (!name || !n01_url || !tournament_date) {
@@ -93,6 +94,7 @@ export async function POST(request: NextRequest) {
         prizes: prizes || null,
         format: format || null,
         image_url: image_url || null,
+        tournament_format: tournament_format || 'single_ko',
       })
       .select()
       .single();
@@ -132,6 +134,7 @@ export async function PUT(request: NextRequest) {
       prizes,
       format,
       image_url,
+      tournament_format,
     } = body;
 
     if (!id) {
@@ -172,6 +175,7 @@ export async function PUT(request: NextRequest) {
     if (prizes !== undefined) updates.prizes = prizes || null;
     if (format !== undefined) updates.format = format || null;
     if (image_url !== undefined) updates.image_url = image_url || null;
+    if (tournament_format !== undefined) updates.tournament_format = tournament_format || 'single_ko';
 
     const { data, error } = await supabase
       .from('tournaments')

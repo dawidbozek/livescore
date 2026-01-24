@@ -293,3 +293,202 @@ export async function markMissingMatchesAsFinished(tournamentId, activeMatchIds)
         console.error('Error marking missing matches as finished:', error);
     }
 }
+
+// =============================================
+// Funkcje dla grup (Grupy + Single K.O.)
+// =============================================
+
+/**
+ * Zapisuje lub aktualizuje grupy (upsert)
+ * @param {string} tournamentId - ID turnieju
+ * @param {Array} groups - Lista grup do zapisania
+ * @returns {Promise<Array>} Zapisane grupy z ich ID
+ */
+export async function upsertGroups(tournamentId, groups) {
+    if (!groups || groups.length === 0) {
+        return [];
+    }
+
+    const groupsToUpsert = groups.map(group => ({
+        tournament_id: tournamentId,
+        group_number: group.groupNumber,
+        group_name: group.groupName,
+        station_number: group.stationNumber,
+        players: group.players,
+        total_matches: group.totalMatches,
+        completed_matches: group.completedMatches,
+        status: group.status || 'pending',
+        referee_scheme: group.memoText || null,
+    }));
+
+    const { data, error } = await supabase
+        .from('groups')
+        .upsert(groupsToUpsert, {
+            onConflict: 'tournament_id,group_number',
+            ignoreDuplicates: false
+        })
+        .select();
+
+    if (error) {
+        console.error('Error upserting groups:', error);
+        throw error;
+    }
+
+    return data || [];
+}
+
+/**
+ * Zapisuje lub aktualizuje mecze grupowe (upsert)
+ * @param {string} groupId - ID grupy
+ * @param {string} tournamentId - ID turnieju
+ * @param {Array} matches - Lista meczów do zapisania
+ * @returns {Promise<Array>} Zapisane mecze
+ */
+export async function upsertGroupMatches(groupId, tournamentId, matches) {
+    if (!matches || matches.length === 0) {
+        return [];
+    }
+
+    const matchesToUpsert = matches.map((match, index) => ({
+        group_id: groupId,
+        tournament_id: tournamentId,
+        match_order: match.matchOrder || (index + 1),
+        player1_name: match.player1Name,
+        player2_name: match.player2Name,
+        player1_id: match.player1Id,
+        player2_id: match.player2Id,
+        player1_score: match.player1Score || 0,
+        player2_score: match.player2Score || 0,
+        referee: match.referee || null,
+        status: match.status || 'pending',
+    }));
+
+    const { data, error } = await supabase
+        .from('group_matches')
+        .upsert(matchesToUpsert, {
+            onConflict: 'group_id,match_order',
+            ignoreDuplicates: false
+        })
+        .select();
+
+    if (error) {
+        console.error('Error upserting group matches:', error);
+        throw error;
+    }
+
+    return data || [];
+}
+
+/**
+ * Pobiera grupy dla turnieju
+ * @param {string} tournamentId - ID turnieju
+ * @returns {Promise<Array>} Lista grup
+ */
+export async function getGroupsByTournament(tournamentId) {
+    const { data, error } = await supabase
+        .from('groups')
+        .select('*')
+        .eq('tournament_id', tournamentId)
+        .order('group_number', { ascending: true });
+
+    if (error) {
+        console.error('Error fetching groups:', error);
+        throw error;
+    }
+
+    return data || [];
+}
+
+/**
+ * Pobiera mecze grupowe dla grupy
+ * @param {string} groupId - ID grupy
+ * @returns {Promise<Array>} Lista meczów
+ */
+export async function getGroupMatchesByGroup(groupId) {
+    const { data, error } = await supabase
+        .from('group_matches')
+        .select('*')
+        .eq('group_id', groupId)
+        .order('match_order', { ascending: true });
+
+    if (error) {
+        console.error('Error fetching group matches:', error);
+        throw error;
+    }
+
+    return data || [];
+}
+
+/**
+ * Pobiera grupy z meczami dla turnieju
+ * @param {string} tournamentId - ID turnieju
+ * @returns {Promise<Array>} Lista grup z meczami
+ */
+export async function getGroupsWithMatchesByTournament(tournamentId) {
+    const { data: groups, error: groupsError } = await supabase
+        .from('groups')
+        .select('*')
+        .eq('tournament_id', tournamentId)
+        .order('group_number', { ascending: true });
+
+    if (groupsError) {
+        console.error('Error fetching groups:', groupsError);
+        throw groupsError;
+    }
+
+    if (!groups || groups.length === 0) {
+        return [];
+    }
+
+    // Pobierz mecze dla każdej grupy
+    const groupIds = groups.map(g => g.id);
+    const { data: matches, error: matchesError } = await supabase
+        .from('group_matches')
+        .select('*')
+        .in('group_id', groupIds)
+        .order('match_order', { ascending: true });
+
+    if (matchesError) {
+        console.error('Error fetching group matches:', matchesError);
+        throw matchesError;
+    }
+
+    // Przypisz mecze do grup
+    return groups.map(group => ({
+        ...group,
+        matches: (matches || []).filter(m => m.group_id === group.id)
+    }));
+}
+
+/**
+ * Usuwa wszystkie grupy i mecze grupowe dla turnieju
+ * @param {string} tournamentId - ID turnieju
+ * @returns {Promise<void>}
+ */
+export async function deleteGroupsByTournament(tournamentId) {
+    // Najpierw usuń mecze grupowe (ze względu na FK)
+    const { data: groups } = await supabase
+        .from('groups')
+        .select('id')
+        .eq('tournament_id', tournamentId);
+
+    if (groups && groups.length > 0) {
+        const groupIds = groups.map(g => g.id);
+
+        await supabase
+            .from('group_matches')
+            .delete()
+            .in('group_id', groupIds);
+    }
+
+    // Teraz usuń grupy
+    const { error } = await supabase
+        .from('groups')
+        .delete()
+        .eq('tournament_id', tournamentId);
+
+    if (error) {
+        console.error('Error deleting groups:', error);
+        throw error;
+    }
+}

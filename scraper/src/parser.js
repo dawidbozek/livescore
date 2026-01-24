@@ -257,3 +257,194 @@ export function isValidN01Url(url) {
         return false;
     }
 }
+
+// =============================================
+// Parsowanie grup (Grupy + Single K.O.)
+// =============================================
+
+/**
+ * Schematy przypisywania sędziów dla grup różnej wielkości (Steel)
+ * Klucz: liczba graczy w grupie, Wartość: lista meczów [gracz1, gracz2, sędzia]
+ */
+export const REFEREE_SCHEMES = {
+    3: [
+        [1, 2, 3],  // Mecz 1: 1 vs 2, sędzia: 3
+        [1, 3, 2],  // Mecz 2: 1 vs 3, sędzia: 2
+        [2, 3, 1],  // Mecz 3: 2 vs 3, sędzia: 1
+    ],
+    4: [
+        [1, 2, 3],  // Mecz 1
+        [3, 4, 2],  // Mecz 2
+        [1, 3, 4],  // Mecz 3
+        [2, 4, 1],  // Mecz 4
+        [1, 4, 3],  // Mecz 5
+        [2, 3, 4],  // Mecz 6
+    ],
+    5: [
+        [1, 2, 3],  // Mecz 1
+        [3, 4, 5],  // Mecz 2
+        [1, 5, 2],  // Mecz 3
+        [2, 3, 4],  // Mecz 4
+        [4, 5, 1],  // Mecz 5
+        [1, 3, 5],  // Mecz 6
+        [2, 4, 3],  // Mecz 7
+        [3, 5, 1],  // Mecz 8
+        [1, 4, 2],  // Mecz 9
+        [2, 5, 4],  // Mecz 10
+    ],
+    6: [
+        [1, 2, 3],  // Mecz 1
+        [4, 5, 6],  // Mecz 2
+        [3, 6, 1],  // Mecz 3
+        [1, 4, 2],  // Mecz 4
+        [2, 5, 3],  // Mecz 5
+        [3, 4, 6],  // Mecz 6
+        [1, 6, 5],  // Mecz 7
+        [2, 3, 4],  // Mecz 8
+        [5, 6, 1],  // Mecz 9
+        [1, 5, 4],  // Mecz 10
+        [2, 6, 3],  // Mecz 11
+        [3, 5, 2],  // Mecz 12
+        [1, 3, 6],  // Mecz 13
+        [4, 6, 5],  // Mecz 14
+        [2, 4, 1],  // Mecz 15
+    ],
+};
+
+/**
+ * Oblicza liczbę meczów w grupie na podstawie liczby graczy
+ * Wzór: n * (n-1) / 2
+ * @param {number} playerCount - Liczba graczy
+ * @returns {number} Liczba meczów
+ */
+export function calculateGroupMatches(playerCount) {
+    return (playerCount * (playerCount - 1)) / 2;
+}
+
+/**
+ * Generuje sędziego dla meczu w grupie na podstawie schematu
+ * @param {number} matchOrder - Numer meczu w grupie (1-based)
+ * @param {Array} players - Lista graczy w grupie
+ * @param {boolean} isSteelType - Czy to turniej Steel
+ * @returns {Object|null} Obiekt z danymi sędziego lub null
+ */
+export function getRefereeForMatch(matchOrder, players, isSteelType) {
+    if (!isSteelType || !players || players.length < 3) {
+        return null;
+    }
+
+    const playerCount = players.length;
+    const scheme = REFEREE_SCHEMES[playerCount];
+
+    if (!scheme || matchOrder < 1 || matchOrder > scheme.length) {
+        return null;
+    }
+
+    const [p1Idx, p2Idx, refIdx] = scheme[matchOrder - 1];
+
+    return {
+        player1Position: p1Idx,
+        player2Position: p2Idx,
+        refereePosition: refIdx,
+        refereeName: players[refIdx - 1]?.name || null,
+    };
+}
+
+/**
+ * Parsuje numer tarczy z tekstu memo grupy
+ * @param {string} memoText - Tekst z .rr_memo
+ * @returns {number|null} Numer tarczy lub null
+ */
+export function parseGroupStationNumber(memoText) {
+    if (!memoText) return null;
+
+    // Szukaj wzorca "Tarcza X" lub "Board X"
+    const match = memoText.match(/(?:tarcza|board)\s*(\d+)/i);
+    return match ? parseInt(match[1], 10) : null;
+}
+
+/**
+ * Parsuje wynik meczu grupowego z komórki tabeli
+ * @param {string} cellText - Tekst komórki (np. "2 - 1" lub "2 - 1\n(63.51)")
+ * @returns {Object} Obiekt z wynikami {player1: number, player2: number}
+ */
+export function parseGroupMatchScore(cellText) {
+    if (!cellText) {
+        return { player1: 0, player2: 0 };
+    }
+
+    // Usuń średnią jeśli jest
+    const textWithoutAvg = cellText.replace(/\([^)]+\)/g, '').trim();
+
+    // Format "X - Y"
+    const match = textWithoutAvg.match(/(\d+)\s*[-–]\s*(\d+)/);
+    if (match) {
+        return {
+            player1: parseInt(match[1], 10) || 0,
+            player2: parseInt(match[2], 10) || 0
+        };
+    }
+
+    return { player1: 0, player2: 0 };
+}
+
+/**
+ * Określa status meczu grupowego na podstawie klasy komórki i zawartości
+ * @param {Object} cellData - Dane komórki
+ * @returns {string} Status: 'active', 'pending', 'finished'
+ */
+export function determineGroupMatchStatus(cellData) {
+    const { hasFixGame, hasActiveBackground, hasRrIdx, scoreText } = cellData;
+
+    // Zakończony - ma klasę fix_game
+    if (hasFixGame) {
+        return 'finished';
+    }
+
+    // Aktywny - ma czerwone tło (Steel)
+    if (hasActiveBackground) {
+        return 'active';
+    }
+
+    // Oczekujący - ma numer kolejności (rr_idx) lub brak wyniku
+    if (hasRrIdx || !scoreText) {
+        return 'pending';
+    }
+
+    return 'pending';
+}
+
+/**
+ * Generuje listę meczów grupowych na podstawie liczby graczy
+ * Każdy mecz między parą graczy występuje raz
+ * @param {Array} players - Lista graczy
+ * @returns {Array} Lista par graczy
+ */
+export function generateGroupMatchPairs(players) {
+    const pairs = [];
+
+    for (let i = 0; i < players.length; i++) {
+        for (let j = i + 1; j < players.length; j++) {
+            pairs.push({
+                player1Index: i,
+                player2Index: j,
+                player1: players[i],
+                player2: players[j],
+            });
+        }
+    }
+
+    return pairs;
+}
+
+/**
+ * Parsuje średnią gracza z tekstu
+ * @param {string} text - Tekst zawierający średnią (np. "(72.60)")
+ * @returns {number|null} Średnia lub null
+ */
+export function parsePlayerAverage(text) {
+    if (!text) return null;
+
+    const match = text.match(/\((\d+\.?\d*)\)/);
+    return match ? parseFloat(match[1]) : null;
+}

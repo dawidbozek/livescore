@@ -9,27 +9,37 @@ import { DateSelector } from '@/components/DateSelector';
 import { SearchBar } from '@/components/SearchBar';
 import { TournamentList } from '@/components/TournamentList';
 import { ActiveMatches } from '@/components/ActiveMatches';
+import { ActiveGroups } from '@/components/ActiveGroups';
 import { PendingMatches } from '@/components/PendingMatches';
 import { FinishedMatches } from '@/components/FinishedMatches';
 import { MatchCard } from '@/components/MatchCard';
+import { GroupCard } from '@/components/GroupCard';
 
 import { useMatches } from '@/hooks/useMatches';
 import { useTournaments } from '@/hooks/useTournaments';
-import { groupMatchesByStatus, formatTimeAgo } from '@/lib/utils';
-import type { Match, Tournament } from '@/lib/types';
+import { useGroups } from '@/hooks/useGroups';
+import { groupMatchesByStatus, groupGroupsByStatus, formatTimeAgo } from '@/lib/utils';
+import type { Match, Tournament, Group } from '@/lib/types';
 
 export default function LiveScorePage() {
   // null = wszystkie aktywne turnieje, Date = konkretny dzień
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTournament, setSelectedTournament] = useState<Tournament | null>(null);
   const [searchResults, setSearchResults] = useState<Match[] | null>(null);
+  const [searchGroupResults, setSearchGroupResults] = useState<Group[] | null>(null);
 
   const { tournaments, isLoading: tournamentsLoading } = useTournaments({
     date: selectedDate,
     activeOnly: selectedDate === null,
   });
 
-  const { matches, isLoading: matchesLoading, lastUpdated, refetch } = useMatches({
+  const { matches, isLoading: matchesLoading, lastUpdated, refetch: refetchMatches } = useMatches({
+    date: selectedDate,
+    tournamentId: selectedTournament?.id,
+    activeOnly: selectedDate === null,
+  });
+
+  const { groups, isLoading: groupsLoading, refetch: refetchGroups } = useGroups({
     date: selectedDate,
     tournamentId: selectedTournament?.id,
     activeOnly: selectedDate === null,
@@ -44,26 +54,45 @@ export default function LiveScorePage() {
     [displayedMatches]
   );
 
+  // Grupuj grupy według statusu
+  const groupedGroups = useMemo(
+    () => groupGroupsByStatus(groups),
+    [groups]
+  );
+
+  // Funkcja odświeżająca wszystko
+  const refetch = () => {
+    refetchMatches();
+    refetchGroups();
+  };
+
   const handleDateChange = (date: Date | null) => {
     setSelectedDate(date);
     setSelectedTournament(null);
     setSearchResults(null);
+    setSearchGroupResults(null);
   };
 
   const handleTournamentSelect = (tournament: Tournament | null) => {
     setSelectedTournament(tournament);
     setSearchResults(null);
+    setSearchGroupResults(null);
   };
 
   const handleSearchResults = (results: Match[]) => {
-    setSearchResults(results);
+    setSearchResults(results.length > 0 ? results : null);
+  };
+
+  const handleGroupSearchResults = (results: Group[]) => {
+    setSearchGroupResults(results.length > 0 ? results : null);
   };
 
   const handleSearchClear = () => {
     setSearchResults(null);
+    setSearchGroupResults(null);
   };
 
-  const isLoading = tournamentsLoading || matchesLoading;
+  const isLoading = tournamentsLoading || matchesLoading || groupsLoading;
 
   return (
     <div className="min-w-[320px]">
@@ -109,15 +138,6 @@ export default function LiveScorePage() {
         <div className="grid lg:grid-cols-[300px,1fr] gap-4 sm:gap-6">
           {/* Sidebar */}
           <aside className="space-y-4 sm:space-y-6">
-            {/* SearchBar - mobile */}
-            <div className="lg:hidden">
-              <SearchBar
-                matches={matches}
-                onSearchResults={handleSearchResults}
-                onClear={handleSearchClear}
-              />
-            </div>
-
             <DateSelector
               selectedDate={selectedDate}
               onDateChange={handleDateChange}
@@ -139,24 +159,28 @@ export default function LiveScorePage() {
                 />
               )}
             </div>
+
+            {/* SearchBar - pod listą turniejów */}
+            <SearchBar
+              matches={matches}
+              groups={groups}
+              onSearchResults={handleSearchResults}
+              onGroupResults={handleGroupSearchResults}
+              onClear={handleSearchClear}
+            />
           </aside>
 
           {/* Main content */}
           <div className="space-y-6 sm:space-y-8">
-            {/* SearchBar - desktop */}
-            <div className="hidden lg:block">
-              <SearchBar
-                matches={matches}
-                onSearchResults={handleSearchResults}
-                onClear={handleSearchClear}
-              />
-            </div>
 
             {/* Search results info */}
-            {searchResults && (
+            {(searchResults || searchGroupResults) && (
               <div className="flex items-center justify-between p-3 sm:p-4 bg-muted rounded-lg">
                 <p className="text-sm sm:text-base">
-                  Znaleziono <strong>{searchResults.length}</strong> mecz(y/ów)
+                  Znaleziono{' '}
+                  {searchResults && <><strong>{searchResults.length}</strong> mecz(y/ów)</>}
+                  {searchResults && searchGroupResults && ', '}
+                  {searchGroupResults && <><strong>{searchGroupResults.length}</strong> grup(y)</>}
                 </p>
                 <Button
                   variant="ghost"
@@ -170,7 +194,7 @@ export default function LiveScorePage() {
             )}
 
             {/* Loading state */}
-            {matchesLoading && !matches.length ? (
+            {(matchesLoading || groupsLoading) && !matches.length && !groups.length ? (
               <div className="space-y-4">
                 {[1, 2, 3, 4, 5, 6].map((i) => (
                   <div key={i} className="skeleton h-32 rounded-lg" />
@@ -179,14 +203,14 @@ export default function LiveScorePage() {
             ) : (
               <>
                 {/* Empty state */}
-                {displayedMatches.length === 0 ? (
+                {displayedMatches.length === 0 && groups.length === 0 && !searchGroupResults ? (
                   <div className="text-center py-12">
                     <Target className="w-16 h-16 mx-auto mb-4 text-muted-foreground/50" />
                     <h3 className="text-lg font-semibold mb-2">
                       Brak meczów do wyświetlenia
                     </h3>
                     <p className="text-muted-foreground text-sm sm:text-base">
-                      {searchResults
+                      {searchResults || searchGroupResults
                         ? 'Nie znaleziono meczów pasujących do wyszukiwania'
                         : selectedDate === null
                           ? 'Obecnie nie ma żadnych aktywnych meczów'
@@ -195,11 +219,55 @@ export default function LiveScorePage() {
                   </div>
                 ) : (
                   <>
-                    {/* Active matches */}
+                    {/* Searched groups - display when searching */}
+                    {searchGroupResults && searchGroupResults.length > 0 && (
+                      <section className="space-y-4">
+                        <h2 className="text-lg sm:text-xl font-bold">
+                          Znalezione grupy ({searchGroupResults.length})
+                        </h2>
+                        <div className="grid gap-3 sm:gap-4 grid-cols-1 lg:grid-cols-2">
+                          {searchGroupResults.map((group) => (
+                            <GroupCard
+                              key={group.id}
+                              group={group}
+                              showTournament={!selectedTournament}
+                            />
+                          ))}
+                        </div>
+                      </section>
+                    )}
+
+                    {/* Active groups (from group tournaments) - hide when searching */}
+                    {!searchResults && !searchGroupResults && groupedGroups.active.length > 0 && (
+                      <ActiveGroups
+                        groups={groupedGroups.active}
+                        showTournament={!selectedTournament}
+                      />
+                    )}
+
+                    {/* Active matches (from K.O. tournaments) */}
                     <ActiveMatches
                       matches={groupedMatches.active}
                       showTournament={!selectedTournament}
                     />
+
+                    {/* Pending groups - hide when searching */}
+                    {!searchResults && !searchGroupResults && groupedGroups.pending.length > 0 && (
+                      <section className="space-y-4">
+                        <h2 className="text-lg sm:text-xl font-bold text-muted-foreground">
+                          Grupy oczekujące ({groupedGroups.pending.length})
+                        </h2>
+                        <div className="grid gap-3 sm:gap-4 grid-cols-1 lg:grid-cols-2">
+                          {groupedGroups.pending.map((group) => (
+                            <GroupCard
+                              key={group.id}
+                              group={group}
+                              showTournament={!selectedTournament}
+                            />
+                          ))}
+                        </div>
+                      </section>
+                    )}
 
                     {/* Pending matches */}
                     <PendingMatches
