@@ -174,57 +174,65 @@ export function GroupDetailModal({ group, isOpen, onClose }: GroupDetailModalPro
               <Users className="w-4 h-4" />
               Mecze w grupie
             </h3>
-            <div className="space-y-2">
+            <div className="overflow-x-auto">
               {matches.length > 0 ? (
-                matches.map((match, index) => (
-                  <div
-                    key={match.id || index}
-                    className={cn(
-                      'flex items-center gap-3 p-2 rounded-lg border',
-                      getMatchStatusBg(match.status)
-                    )}
-                  >
-                    {/* Match number */}
-                    <span className="text-xs text-muted-foreground w-6 text-center">
-                      {match.match_order || index + 1}
-                    </span>
+                <table className="w-full text-sm">
+                  <tbody>
+                    {matches.map((match, index) => (
+                      <tr
+                        key={match.id || index}
+                        className={cn(
+                          'border-b last:border-b-0',
+                          getMatchStatusBg(match.status)
+                        )}
+                      >
+                        {/* Match number */}
+                        <td className="py-2 px-1 text-center text-xs text-muted-foreground w-8">
+                          {match.match_order || index + 1}
+                        </td>
 
-                    {/* Status icon */}
-                    {getMatchStatusIcon(match.status)}
+                        {/* Status icon */}
+                        <td className="py-2 px-1 w-6">
+                          {getMatchStatusIcon(match.status)}
+                        </td>
 
-                    {/* Players and score */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className={cn(
-                          'truncate',
+                        {/* Player 1 - right aligned */}
+                        <td className={cn(
+                          'py-2 px-2 text-right',
                           match.status === 'finished' && match.player1_score > match.player2_score && 'font-semibold'
                         )}>
                           {match.player1_name}
-                        </span>
-                        <span className="font-mono text-sm">
+                        </td>
+
+                        {/* Score - centered, fixed width */}
+                        <td className="py-2 px-2 text-center font-mono whitespace-nowrap w-16">
                           {match.status === 'finished' ? (
                             `${match.player1_score} - ${match.player2_score}`
+                          ) : match.status === 'active' ? (
+                            <span className="text-darts-green font-semibold">LIVE</span>
                           ) : (
                             <span className="text-muted-foreground">vs</span>
                           )}
-                        </span>
-                        <span className={cn(
-                          'truncate text-right',
+                        </td>
+
+                        {/* Player 2 - left aligned */}
+                        <td className={cn(
+                          'py-2 px-2 text-left',
                           match.status === 'finished' && match.player2_score > match.player1_score && 'font-semibold'
                         )}>
                           {match.player2_name}
-                        </span>
-                      </div>
-                    </div>
+                        </td>
 
-                    {/* Referee (Steel only) */}
-                    {isSteelType && match.referee && (
-                      <span className="text-xs text-muted-foreground whitespace-nowrap">
-                        Sędzia: {match.referee}
-                      </span>
-                    )}
-                  </div>
-                ))
+                        {/* Referee (Steel only) */}
+                        {isSteelType && (
+                          <td className="py-2 px-2 text-xs text-muted-foreground whitespace-nowrap">
+                            {match.referee || ''}
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               ) : (
                 <p className="text-sm text-muted-foreground text-center py-4">
                   Brak danych o meczach
@@ -233,15 +241,6 @@ export function GroupDetailModal({ group, isOpen, onClose }: GroupDetailModalPro
             </div>
           </div>
 
-          {/* Referee scheme (if available) */}
-          {isSteelType && group.referee_scheme && (
-            <div>
-              <h3 className="font-semibold mb-2">Schemat sędziów</h3>
-              <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                {group.referee_scheme}
-              </p>
-            </div>
-          )}
         </div>
 
         {/* Footer */}

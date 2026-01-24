@@ -281,6 +281,24 @@ export default function LiveScorePage() {
                       showTournament={!selectedTournament}
                     />
 
+                    {/* Finished groups - only show when specific tournament is selected */}
+                    {!searchResults && !searchGroupResults && selectedTournament && groupedGroups.finished.length > 0 && (
+                      <section className="space-y-4">
+                        <h2 className="text-lg sm:text-xl font-bold text-muted-foreground">
+                          Zakończone grupy ({groupedGroups.finished.length})
+                        </h2>
+                        <div className="grid gap-3 sm:gap-4 grid-cols-1 lg:grid-cols-2">
+                          {groupedGroups.finished.map((group) => (
+                            <GroupCard
+                              key={group.id}
+                              group={group}
+                              showTournament={false}
+                            />
+                          ))}
+                        </div>
+                      </section>
+                    )}
+
                     {/* Walkovers */}
                     {groupedMatches.walkover.length > 0 && (
                       <section className="space-y-4">

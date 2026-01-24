@@ -358,17 +358,7 @@ async function scrapeGroups(page, isSteelType = true) {
 
                     // Określ status meczu
                     const hasFixGame = cell.classList.contains('fix_game');
-                    const hasRrIdx = cell.querySelector('.rr_idx') !== null;
-
-                    // Wykryj aktywny mecz (czerwone tło dla Steel)
-                    const style = window.getComputedStyle(cell);
-                    const bgColor = style.backgroundColor;
-                    // Jasnoczerwone tło - np. rgb(255, 200, 200) lub podobne
-                    const hasActiveBackground = bgColor && bgColor.includes('rgb') &&
-                        !bgColor.includes('rgba(0, 0, 0, 0)') &&
-                        bgColor !== 'rgb(255, 255, 255)' &&
-                        bgColor !== 'rgba(0, 0, 0, 0)' &&
-                        cell.style.backgroundColor !== '';
+                    const hasInTheGame = cell.classList.contains('in_the_game');
 
                     // Pobierz wynik z komórki
                     const cellText = cell.textContent?.trim() || '';
@@ -382,16 +372,16 @@ async function scrapeGroups(page, isSteelType = true) {
                     const matchAvgMatch = matchAvgText.match(/\((\d+\.?\d*)\)/);
                     const matchAverage = matchAvgMatch ? parseFloat(matchAvgMatch[1]) : null;
 
-                    // Numer kolejności meczu (dla Soft)
-                    const idxEl = cell.querySelector('.rr_idx');
-                    const matchOrder = idxEl ? parseInt(idxEl.textContent?.trim()) || null : null;
+                    // Numer kolejności meczu - z atrybutu idx na komórce
+                    const idxAttr = cell.getAttribute('idx');
+                    const matchOrder = idxAttr ? parseInt(idxAttr) : null;
 
                     // Status meczu
                     let status = 'pending';
                     if (hasFixGame) {
                         status = 'finished';
                         completedMatches++;
-                    } else if (hasActiveBackground) {
+                    } else if (hasInTheGame) {
                         status = 'active';
                     }
 
@@ -415,6 +405,9 @@ async function scrapeGroups(page, isSteelType = true) {
                     }
                 });
             });
+
+            // Sortuj mecze według matchOrder
+            matches.sort((a, b) => (a.matchOrder || 999) - (b.matchOrder || 999));
 
             // Oblicz całkowitą liczbę meczów
             const totalMatches = (players.length * (players.length - 1)) / 2;
@@ -440,7 +433,7 @@ async function scrapeGroups(page, isSteelType = true) {
                 completedMatches,
                 status: groupStatus,
             };
-        }).filter(g => g !== null);
+        }).filter(g => g !== null && g.players && g.players.length > 0);
     }, isSteelType);
 
     log(`Found ${groups.length} groups`);

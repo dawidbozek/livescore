@@ -349,10 +349,24 @@ export async function upsertGroupMatches(groupId, tournamentId, matches) {
         return [];
     }
 
-    const matchesToUpsert = matches.map((match, index) => ({
+    // Usuń duplikaty na podstawie matchOrder (mecze są już posortowane)
+    const seen = new Set();
+    const uniqueMatches = matches.filter(match => {
+        // Użyj matchOrder jako klucza jeśli istnieje, inaczej użyj pary graczy
+        const key = match.matchOrder
+            ? `order_${match.matchOrder}`
+            : [match.player1Name, match.player2Name].sort().join('|');
+        if (seen.has(key)) {
+            return false;
+        }
+        seen.add(key);
+        return true;
+    });
+
+    const matchesToUpsert = uniqueMatches.map((match, index) => ({
         group_id: groupId,
         tournament_id: tournamentId,
-        match_order: match.matchOrder || (index + 1),
+        match_order: match.matchOrder || (index + 1), // Użyj matchOrder z n01 jeśli dostępny
         player1_name: match.player1Name,
         player2_name: match.player2Name,
         player1_id: match.player1Id,
