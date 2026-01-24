@@ -10,6 +10,11 @@ if (!supabaseUrl || !supabaseAnonKey) {
 // Klient publiczny (dla frontendu)
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+// Funkcja tworząca klienta publicznego (dla API routes - odczyt)
+export function createPublicClient() {
+  return createClient(supabaseUrl, supabaseAnonKey);
+}
+
 // Klient z service_role (tylko dla API routes na serwerze)
 export function createServiceClient() {
   const serviceKey = process.env.SUPABASE_SERVICE_KEY;
