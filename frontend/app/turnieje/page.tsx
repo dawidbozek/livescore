@@ -10,7 +10,7 @@ import type { Tournament, DartType } from '@/lib/types';
 
 // Hardcoded tournament schedule for MP2026
 // In production, this would come from the database
-const tournamentSchedule: Record<string, Omit<Tournament, 'id' | 'is_active' | 'n01_url' | 'created_at' | 'updated_at' | 'image_url'>[]> = {
+const tournamentSchedule: Record<string, Omit<Tournament, 'id' | 'is_active' | 'n01_url' | 'created_at' | 'updated_at' | 'image_url' | 'tournament_format'>[]> = {
   'czwartek': [
     {
       name: 'Warmup Open Steel',
@@ -171,7 +171,7 @@ export default function TurniejePage() {
 
   const tournaments = tournamentSchedule[activeDay] || [];
 
-  const openModal = (tournament: Omit<Tournament, 'id' | 'is_active' | 'n01_url' | 'created_at' | 'updated_at' | 'image_url'>) => {
+  const openModal = (tournament: Omit<Tournament, 'id' | 'is_active' | 'n01_url' | 'created_at' | 'updated_at' | 'image_url' | 'tournament_format'>) => {
     // Convert to full Tournament type for modal
     setModalTournament({
       ...tournament,
@@ -179,6 +179,7 @@ export default function TurniejePage() {
       is_active: false,
       n01_url: '',
       image_url: null,
+      tournament_format: 'single_ko',
       created_at: '',
       updated_at: '',
     } as Tournament);
