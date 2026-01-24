@@ -95,16 +95,47 @@ export async function scrapeTournament(url, options = {}) {
         log('Waiting for JavaScript to load...');
         await sleep(5000);
 
-        // Poczekaj na załadowanie elementów meczów
-        try {
-            await page.waitForSelector('.t_item_container', { timeout: 15000 });
-            log('Found .t_item_container elements');
-        } catch (e) {
-            log('Timeout waiting for .t_item_container, checking page content...');
+        // Poczekaj na załadowanie elementów meczów LUB grup
+        let hasKOMatches = false;
+        let hasGroupTables = false;
 
-            // Sprawdź co jest na stronie
+        try {
+            // Sprawdź czy są mecze K.O.
+            await page.waitForSelector('.t_item_container', { timeout: 10000 });
+            hasKOMatches = true;
+            log('Found .t_item_container elements (K.O. matches)');
+        } catch (e) {
+            log('No .t_item_container found, checking for group tables...');
+        }
+
+        // Sprawdź czy są tabele grupowe
+        try {
+            await page.waitForSelector('.rr_table_container', { timeout: 5000 });
+            hasGroupTables = true;
+            log('Found .rr_table_container elements (group tables)');
+        } catch (e) {
+            log('No .rr_table_container found');
+        }
+
+        // Jeśli nic nie znaleziono, zaloguj zawartość strony
+        if (!hasKOMatches && !hasGroupTables) {
             const bodyText = await page.evaluate(() => document.body?.innerText?.substring(0, 500) || 'empty');
             log(`Page content preview: ${bodyText.substring(0, 200)}...`);
+
+            // Sprawdź jakie klasy są na stronie
+            const classes = await page.evaluate(() => {
+                const allElements = document.querySelectorAll('[class]');
+                const classSet = new Set();
+                allElements.forEach(el => {
+                    el.classList.forEach(c => {
+                        if (c.includes('rr_') || c.includes('t_item') || c.includes('table')) {
+                            classSet.add(c);
+                        }
+                    });
+                });
+                return Array.from(classSet).slice(0, 20);
+            });
+            log(`Relevant CSS classes found: ${classes.join(', ')}`);
         }
 
         // Parsuj mecze z n01darts.com
@@ -192,12 +223,25 @@ export async function scrapeTournament(url, options = {}) {
 
         // Sprawdź czy są grupy (dla turniejów z formatem groups_ko)
         let groups = [];
-        const hasGroups = await hasGroupTables(page);
+        const hasGroups = await checkHasGroupTables(page);
+
+        log(`Tournament format: ${tournamentFormat}, hasGroupTables: ${hasGroups}`);
 
         if (hasGroups || tournamentFormat === 'groups_ko') {
-            log('Detected group tables, scraping groups...');
-            groups = await scrapeGroups(page, isSteelType);
-            log(`Scraped ${groups.length} groups with ${groups.reduce((sum, g) => sum + g.matches.length, 0)} group matches`);
+            log('Attempting to scrape group tables...');
+            try {
+                groups = await scrapeGroups(page, isSteelType);
+                log(`Scraped ${groups.length} groups with ${groups.reduce((sum, g) => sum + g.matches.length, 0)} group matches`);
+
+                // Loguj szczegóły każdej grupy
+                groups.forEach((g, i) => {
+                    log(`  Group ${i + 1}: "${g.groupName}" - ${g.players.length} players, ${g.matches.length} matches, status: ${g.status}`);
+                });
+            } catch (groupError) {
+                log(`Error scraping groups: ${groupError.message}`, 'error');
+            }
+        } else {
+            log('No group tables detected and tournament format is not groups_ko');
         }
 
         return { matches, groups };
@@ -220,6 +264,15 @@ export async function scrapeTournament(url, options = {}) {
  */
 async function scrapeGroups(page, isSteelType = true) {
     log('Scraping group tables...');
+
+    // Najpierw policz ile kontenerów jest
+    const containerCount = await page.$$eval('.rr_table_container', c => c.length);
+    log(`Found ${containerCount} group containers to scrape`);
+
+    if (containerCount === 0) {
+        log('No group containers found, returning empty array');
+        return [];
+    }
 
     const groups = await page.$$eval('.rr_table_container', (containers, isSteelType) => {
         return containers.map((container, groupIndex) => {
@@ -423,8 +476,15 @@ async function scrapeGroups(page, isSteelType = true) {
  * @param {Page} page - Strona Puppeteer
  * @returns {Promise<boolean>} Czy są grupy
  */
-async function hasGroupTables(page) {
-    return await page.$$eval('.rr_table_container', containers => containers.length > 0);
+async function checkHasGroupTables(page) {
+    try {
+        const count = await page.$$eval('.rr_table_container', containers => containers.length);
+        log(`Found ${count} .rr_table_container elements`);
+        return count > 0;
+    } catch (e) {
+        log(`Error checking for group tables: ${e.message}`);
+        return false;
+    }
 }
 
 /**
