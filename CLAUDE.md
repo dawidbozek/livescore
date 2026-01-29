@@ -16,7 +16,7 @@ Serwis pełni funkcje:
 | Komponent | Hosting | URL |
 |-----------|---------|-----|
 | **Frontend** | Netlify | (twój-url.netlify.app) |
-| **Scraper** | Mikrus (VPS) | ~/livescore/scraper |
+| **Scraper** | **Railway** | Auto-deploy z GitHub |
 | **Baza danych** | Supabase | (twój-projekt.supabase.co) |
 | **GitHub** | - | https://github.com/dawidbozek/livescore |
 
@@ -36,7 +36,7 @@ Serwis pełni funkcje:
 ## Struktura projektu
 
 ```
-mp2026/
+livescore/
 ├── frontend/                    # Next.js 16 (App Router)
 │   ├── app/
 │   │   ├── page.tsx             # Strona główna
@@ -50,43 +50,30 @@ mp2026/
 │   │   ├── turniej-reprezentantow/page.tsx # Landing prestiżowy
 │   │   ├── admin/page.tsx       # Panel admina
 │   │   └── api/                 # API Routes
-│   │       ├── tournaments/
-│   │       ├── matches/
-│   │       └── admin/
 │   │
 │   ├── components/
 │   │   ├── layout/              # Navbar, Footer
 │   │   ├── home/                # Hero, Countdown, Highlights, FAQ
 │   │   ├── ui/                  # Button, Card, Input (shadcn-like)
 │   │   ├── MatchCard.tsx        # Karta meczu
-│   │   ├── TournamentList.tsx   # Lista turniejów
-│   │   ├── SearchBar.tsx        # Wyszukiwarka
-│   │   ├── DateSelector.tsx     # Wybór daty
 │   │   └── ...
 │   │
 │   ├── hooks/
-│   │   ├── useMatches.ts        # Pobieranie meczów
-│   │   ├── useTournaments.ts    # Pobieranie turniejów
-│   │   └── useCountdown.ts      # Odliczanie do eventu
-│   │
 │   ├── lib/
-│   │   ├── supabase.ts          # Klient Supabase
-│   │   ├── types.ts             # Typy TypeScript
-│   │   └── utils.ts             # Funkcje pomocnicze
-│   │
 │   └── public/images/           # Grafiki (logo, banner)
 │
-├── scraper/                     # Node.js + Puppeteer
+├── scraper/                     # Node.js + Puppeteer (Railway)
+│   ├── Dockerfile               # Debian + Chromium
+│   ├── railway.toml             # Konfiguracja Railway (w rootcie repo)
 │   └── src/
 │       ├── index.js             # Główna pętla
 │       ├── scraper.js           # Logika Puppeteer
 │       ├── parser.js            # Parsowanie HTML
 │       └── database.js          # Operacje Supabase
 │
-├── supabase/schema.sql          # Schema bazy danych
+├── railway.toml                 # Railway config (root - wskazuje na scraper/Dockerfile)
 ├── netlify.toml                 # Konfiguracja Netlify
-├── CLAUDE.md                    # Ten plik
-└── Architektura serwisu.md      # Szczegółowa dokumentacja
+└── CLAUDE.md                    # Ten plik
 ```
 
 ## Technologie
@@ -101,8 +88,8 @@ mp2026/
 ### Backend / Infrastruktura
 - **Supabase** - PostgreSQL + API
 - **Puppeteer** - scraping n01darts.com
+- **Railway** - hosting scrapera (Docker)
 - **Netlify** - hosting frontend
-- **PM2** - zarządzanie procesem scrapera
 
 ## Kolory
 
@@ -123,7 +110,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 SUPABASE_SERVICE_KEY=eyJ...
 ```
 
-### Mikrus (scraper)
+### Railway (scraper)
 ```env
 SUPABASE_URL=https://xxx.supabase.co
 SUPABASE_SERVICE_KEY=eyJ...
@@ -150,21 +137,20 @@ npm start
 ### Frontend (Netlify)
 Automatyczny deploy po pushu do GitHub (`main` branch).
 
-### Scraper (Mikrus)
-```bash
-ssh user@mikrus
-cd ~/livescore/scraper
-git pull
-npm install  # jeśli zmienił się package.json
-pm2 restart darts-scraper
-```
+### Scraper (Railway)
+Automatyczny deploy po pushu do GitHub (`main` branch).
 
-### Przydatne komendy PM2
-```bash
-pm2 status                    # Status procesów
-pm2 logs darts-scraper        # Logi live
-pm2 restart darts-scraper     # Restart
-pm2 monit                     # Monitor CPU/RAM
+**Konfiguracja Railway:**
+- `railway.toml` w rootcie repo wskazuje na `scraper/Dockerfile`
+- Dockerfile używa `node:22-bookworm-slim` + Chromium z Debian
+- Zmienne środowiskowe ustawione w Railway Dashboard → Variables
+
+**Dockerfile (scraper/Dockerfile):**
+```dockerfile
+FROM node:22-bookworm-slim
+RUN apt-get update && apt-get install -y chromium ...
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 ```
 
 ## Baza danych
@@ -175,15 +161,12 @@ pm2 monit                     # Monitor CPU/RAM
 | id | UUID | Primary key |
 | name | VARCHAR(255) | Nazwa turnieju |
 | n01_url | TEXT | URL do n01darts.com |
-| tournament_date | DATE | Data turnieju |
-| is_active | BOOLEAN | Czy aktywny |
+| tournament_date | DATE | Data turnieju (informacyjnie) |
+| **is_active** | BOOLEAN | **Czy scraper ma pobierać dane** |
 | dart_type | VARCHAR(10) | 'steel' / 'soft' |
 | category | VARCHAR(20) | indywidualny/deblowy/triple/druzynowy |
-| start_time | TIME | Godzina startu |
-| entry_fee | VARCHAR(50) | Wpisowe |
-| prizes | TEXT | Nagrody |
-| format | VARCHAR(100) | Format turnieju |
-| image_url | TEXT | URL grafiki |
+
+**WAŻNE:** Scraper pobiera wszystkie turnieje z `is_active = true` (bez filtrowania po dacie).
 
 ### Tabela: matches
 | Kolumna | Typ | Opis |
@@ -199,23 +182,15 @@ pm2 monit                     # Monitor CPU/RAM
 | referee | VARCHAR(255) | Sędzia |
 | status | VARCHAR(50) | active/pending/finished/walkover |
 
-## API Endpoints
-
-### Publiczne
-- `GET /api/tournaments?date=YYYY-MM-DD` - turnieje dla daty
-- `GET /api/tournaments?active_only=true` - aktywne turnieje
-- `GET /api/matches?date=YYYY-MM-DD` - mecze dla daty
-- `GET /api/matches?active_only=true` - mecze z aktywnych turniejów
-
-### Admin
-- `POST /api/admin/auth` - logowanie
-- `GET/POST/PUT/DELETE /api/admin/tournaments` - CRUD turniejów
+### Tabele: groups, group_matches
+Dla turniejów z fazą grupową (Round Robin).
 
 ## Przepływ danych (Live Score)
 
-1. **Admin** dodaje turniej z URL n01darts.com
-2. **Scraper** co 30s pobiera dane meczów z n01
+1. **Admin** dodaje turniej z URL n01darts.com, ustawia `is_active = true`
+2. **Scraper** (Railway) co 30s pobiera dane meczów z n01
 3. **Frontend** co 15s odpytuje API i wyświetla wyniki
+4. Po zakończeniu turnieju admin ustawia `is_active = false`
 
 ## Integracje (TODO)
 
@@ -225,8 +200,9 @@ pm2 monit                     # Monitor CPU/RAM
 
 ## Znane problemy
 
-1. **Hydration SSR/CSR** - komponenty z `Date()` muszą używać `useEffect` dla obliczeń
+1. **Hydration SSR/CSR** - komponenty z `Date()` muszą używać `useEffect`
 2. **Netlify build** - wymaga `netlify.toml` z `base = "frontend"`
+3. **Scraper działa non-stop** - nawet gdy brak aktywnych turniejów (do optymalizacji)
 
 ## Konwencje kodu
 
@@ -235,7 +211,6 @@ pm2 monit                     # Monitor CPU/RAM
 - **Tabele DB**: snake_case (`player1_name`)
 - **'use client'** dla komponentów interaktywnych
 - **min-h-[44px]** dla touch targets (przyciski)
-- **min-w-[320px]** minimalna szerokość strony
 
 ## Kontakt
 
