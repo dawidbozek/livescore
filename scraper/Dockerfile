@@ -7,7 +7,7 @@ WORKDIR /app
 COPY scraper/package*.json ./
 
 # Zainstaluj zależności (puppeteer-core nie pobiera przeglądarki)
-RUN npm ci --only=production
+RUN npm install --omit=dev
 
 # Skopiuj kod
 COPY scraper/src/ ./src/
