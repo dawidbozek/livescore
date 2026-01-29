@@ -1,0 +1,10 @@
+[build]
+# Użyj Dockerfile zamiast Railpack
+builder = "dockerfile"
+dockerfilePath = "scraper/Dockerfile"
+watchPatterns = ["scraper/**"]
+
+[deploy]
+# Restart przy crashu
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
