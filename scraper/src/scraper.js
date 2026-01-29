@@ -2,7 +2,7 @@
  * Puppeteer scraper dla n01darts.com
  */
 
-import puppeteer from 'puppeteer';
+import puppeteer from 'puppeteer-core';
 import {
     parseAllMatches,
     isValidN01Url,
