@@ -15,17 +15,13 @@ export const supabase = createClient(supabaseUrl, supabaseServiceKey, {
 });
 
 /**
- * Pobiera aktywne turnieje na dany dzień
- * @param {Date} date - Data turnieju
+ * Pobiera wszystkie aktywne turnieje (bez filtrowania po dacie)
  * @returns {Promise<Array>} Lista turniejów
  */
-export async function getActiveTournaments(date = new Date()) {
-    const dateStr = date.toISOString().split('T')[0];
-
+export async function getActiveTournaments() {
     const { data, error } = await supabase
         .from('tournaments')
         .select('*')
-        .eq('tournament_date', dateStr)
         .eq('is_active', true);
 
     if (error) {
