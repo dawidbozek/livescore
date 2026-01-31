@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, memo, useCallback } from 'react';
 import Fuse from 'fuse.js';
 import { Search, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -22,7 +22,7 @@ interface FlatGroupPlayer {
   groupId: string;
 }
 
-export function SearchBar({
+function SearchBarComponent({
   matches,
   groups = [],
   onSearchResults,
@@ -131,3 +131,25 @@ export function SearchBar({
     </div>
   );
 }
+
+// Memoizowany komponent - re-renderuje się tylko gdy zmienią się dane
+export const SearchBar = memo(SearchBarComponent, (prevProps, nextProps) => {
+  // Shallow comparison dla funkcji callback (zakładamy że są stabilne)
+  if (prevProps.onSearchResults !== nextProps.onSearchResults) return false;
+  if (prevProps.onGroupResults !== nextProps.onGroupResults) return false;
+  if (prevProps.onClear !== nextProps.onClear) return false;
+
+  // Porównaj długość tablic (szybkie sprawdzenie)
+  if (prevProps.matches.length !== nextProps.matches.length) return false;
+  if ((prevProps.groups?.length || 0) !== (nextProps.groups?.length || 0)) return false;
+
+  // Porównaj ID pierwszego i ostatniego elementu (heurystyka)
+  if (prevProps.matches.length > 0 && nextProps.matches.length > 0) {
+    if (prevProps.matches[0].id !== nextProps.matches[0].id) return false;
+    const lastPrev = prevProps.matches[prevProps.matches.length - 1];
+    const lastNext = nextProps.matches[nextProps.matches.length - 1];
+    if (lastPrev.id !== lastNext.id) return false;
+  }
+
+  return true;
+});

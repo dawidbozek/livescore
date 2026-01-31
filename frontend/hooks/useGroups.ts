@@ -34,6 +34,8 @@ export function useGroups(options: UseGroupsOptions = {}): UseGroupsReturn {
 
   // AbortController do anulowania żądań przy unmount
   const abortControllerRef = useRef<AbortController | null>(null);
+  // Ref do przechowywania aktualnej funkcji fetch (stabilny polling)
+  const fetchRef = useRef<() => Promise<void>>();
 
   const fetchGroups = useCallback(async () => {
     // Anuluj poprzednie żądanie
@@ -89,6 +91,11 @@ export function useGroups(options: UseGroupsOptions = {}): UseGroupsReturn {
     }
   }, [date, tournamentId, activeOnly]);
 
+  // Aktualizuj ref przy każdej zmianie fetchGroups
+  useEffect(() => {
+    fetchRef.current = fetchGroups;
+  }, [fetchGroups]);
+
   // Initial fetch + cleanup
   useEffect(() => {
     setIsLoading(true);
@@ -102,16 +109,16 @@ export function useGroups(options: UseGroupsOptions = {}): UseGroupsReturn {
     };
   }, [fetchGroups]);
 
-  // Polling
+  // Polling - używa ref więc nie musi się restartować przy zmianie fetchGroups
   useEffect(() => {
     if (pollingInterval <= 0) return;
 
     const interval = setInterval(() => {
-      fetchGroups();
+      fetchRef.current?.();
     }, pollingInterval);
 
     return () => clearInterval(interval);
-  }, [fetchGroups, pollingInterval]);
+  }, [pollingInterval]); // Tylko pollingInterval w dependencies
 
   return {
     groups,
