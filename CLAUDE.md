@@ -42,6 +42,8 @@ livescore/
 │   │   ├── page.tsx             # Strona główna
 │   │   ├── layout.tsx           # Wspólny layout (Navbar + Footer)
 │   │   ├── globals.css          # Style globalne
+│   │   ├── error.tsx            # Error boundary
+│   │   ├── global-error.tsx     # Critical error fallback
 │   │   ├── live/page.tsx        # Live Score
 │   │   ├── turnieje/page.tsx    # Kalendarz turniejów
 │   │   ├── rezerwacja/page.tsx  # Formularz rezerwacji
@@ -59,7 +61,13 @@ livescore/
 │   │   └── ...
 │   │
 │   ├── hooks/
+│   │   ├── useMatches.ts        # Hook z polling dla meczów
+│   │   └── useGroups.ts         # Hook z polling dla grup
 │   ├── lib/
+│   │   ├── auth.ts              # Helper weryfikacji sesji admin
+│   │   ├── supabase.ts          # Klient Supabase
+│   │   ├── types.ts             # Typy TypeScript
+│   │   └── utils.ts             # Utility functions
 │   └── public/images/           # Grafiki (logo, banner)
 │
 ├── scraper/                     # Node.js + Puppeteer (Railway)
@@ -84,12 +92,31 @@ livescore/
 - **Tailwind CSS** - stylowanie utility-first
 - **Lucide React** - ikony
 - **Fuse.js** - wyszukiwanie fuzzy
+- **bcryptjs** - hashowanie haseł
 
 ### Backend / Infrastruktura
 - **Supabase** - PostgreSQL + API
 - **Puppeteer** - scraping n01darts.com
 - **Railway** - hosting scrapera (Docker)
 - **Netlify** - hosting frontend
+
+## Bezpieczeństwo
+
+### Autentykacja admina
+- **HTTP-only cookies** - sesja przechowywana w secure cookie (nie sessionStorage)
+- **bcrypt** - hasła hashowane z 12 rundami
+- **Middleware auth** - wszystkie endpointy admin wymagają weryfikacji sesji
+- **Auto-migracja** - stare hasła plaintext automatycznie hashowane przy logowaniu
+
+### Pliki auth:
+- `frontend/lib/auth.ts` - helper do weryfikacji sesji
+- `frontend/app/api/admin/auth/route.ts` - logowanie, wylogowanie, zmiana hasła
+
+### Tabela: admin_settings
+| Kolumna | Typ | Opis |
+|---------|-----|------|
+| key | VARCHAR | 'admin_password_hash' |
+| value | TEXT | Hash bcrypt hasła |
 
 ## Kolory
 
@@ -203,6 +230,13 @@ Dla turniejów z fazą grupową (Round Robin).
 1. **Hydration SSR/CSR** - komponenty z `Date()` muszą używać `useEffect`
 2. **Netlify build** - wymaga `netlify.toml` z `base = "frontend"`
 3. **Scraper działa non-stop** - nawet gdy brak aktywnych turniejów (do optymalizacji)
+4. **Parser statystyk Steel** - wyświetla numery zamiast nazw graczy (do naprawy)
+
+## Error handling
+
+- **error.tsx** - error boundary dla błędów w app (z przyciskiem retry)
+- **global-error.tsx** - fallback dla krytycznych błędów
+- **AbortController** - w hookach useMatches/useGroups (zapobiega memory leaks)
 
 ## Konwencje kodu
 
