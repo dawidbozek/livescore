@@ -1,7 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase';
+import { verifyAdminSession, unauthorizedResponse } from '@/lib/auth';
 
-// Pobierz wszystkie turnieje (także nieaktywne)
+// Walidacja URL n01darts.com
+function isValidN01Url(urlString: string): boolean {
+  try {
+    const url = new URL(urlString);
+    // Ścisłe sprawdzenie - musi być dokładnie n01darts.com lub www.n01darts.com
+    return url.hostname === 'n01darts.com' || url.hostname === 'www.n01darts.com';
+  } catch {
+    return false;
+  }
+}
+
+// Pobierz wszystkie turnieje (także nieaktywne) - publiczny endpoint
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -39,8 +51,13 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// Dodaj nowy turniej
+// Dodaj nowy turniej (wymaga autoryzacji)
 export async function POST(request: NextRequest) {
+  // Weryfikuj sesję admina
+  if (!(await verifyAdminSession())) {
+    return unauthorizedResponse();
+  }
+
   try {
     const body = await request.json();
     const {
@@ -65,17 +82,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Walidacja URL
-    try {
-      const url = new URL(n01_url);
-      if (!url.hostname.includes('n01darts.com')) {
-        return NextResponse.json(
-          { error: 'URL must be from n01darts.com' },
-          { status: 400 }
-        );
-      }
-    } catch {
-      return NextResponse.json({ error: 'Invalid URL format' }, { status: 400 });
+    // Walidacja URL - ścisłe sprawdzenie
+    if (!isValidN01Url(n01_url)) {
+      return NextResponse.json(
+        { error: 'URL must be from n01darts.com' },
+        { status: 400 }
+      );
     }
 
     const supabase = createServiceClient();
@@ -117,8 +129,13 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Aktualizuj turniej
+// Aktualizuj turniej (wymaga autoryzacji)
 export async function PUT(request: NextRequest) {
+  // Weryfikuj sesję admina
+  if (!(await verifyAdminSession())) {
+    return unauthorizedResponse();
+  }
+
   try {
     const body = await request.json();
     const {
@@ -149,22 +166,14 @@ export async function PUT(request: NextRequest) {
     const updates: Record<string, unknown> = {};
     if (name !== undefined) updates.name = name;
     if (n01_url !== undefined) {
-      // Walidacja URL
-      try {
-        const url = new URL(n01_url);
-        if (!url.hostname.includes('n01darts.com')) {
-          return NextResponse.json(
-            { error: 'URL must be from n01darts.com' },
-            { status: 400 }
-          );
-        }
-        updates.n01_url = n01_url;
-      } catch {
+      // Walidacja URL - ścisłe sprawdzenie
+      if (!isValidN01Url(n01_url)) {
         return NextResponse.json(
-          { error: 'Invalid URL format' },
+          { error: 'URL must be from n01darts.com' },
           { status: 400 }
         );
       }
+      updates.n01_url = n01_url;
     }
     if (tournament_date !== undefined) updates.tournament_date = tournament_date;
     if (is_active !== undefined) updates.is_active = is_active;
@@ -202,8 +211,13 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// Usuń turniej
+// Usuń turniej (wymaga autoryzacji)
 export async function DELETE(request: NextRequest) {
+  // Weryfikuj sesję admina
+  if (!(await verifyAdminSession())) {
+    return unauthorizedResponse();
+  }
+
   try {
     const searchParams = request.nextUrl.searchParams;
     const id = searchParams.get('id');

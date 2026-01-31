@@ -7,7 +7,6 @@ export async function GET(
 ) {
   try {
     const { id: tournamentId } = await params;
-    console.log('[Stats API] Fetching stats for tournament:', tournamentId);
 
     if (!tournamentId) {
       return NextResponse.json(
@@ -22,8 +21,6 @@ export async function GET(
       .eq('tournament_id', tournamentId)
       .order('avg_3_darts', { ascending: false, nullsFirst: false });
 
-    console.log('[Stats API] Query result:', { count: data?.length || 0, error });
-
     if (error) {
       console.error('Error fetching tournament stats:', error);
       return NextResponse.json(
@@ -32,7 +29,6 @@ export async function GET(
       );
     }
 
-    console.log('[Stats API] Returning', data?.length || 0, 'stats');
     return NextResponse.json({ stats: data || [] });
   } catch (error) {
     console.error('Error in tournament stats API:', error);

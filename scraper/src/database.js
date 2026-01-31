@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { log } from './utils.js';
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
@@ -278,15 +279,47 @@ export async function markMissingMatchesAsFinished(tournamentId, activeMatchIds)
         return;
     }
 
-    const { error } = await supabase
+    // Sanitize match IDs - tylko alfanumeryczne, podkreślniki i myślniki
+    const sanitizedIds = activeMatchIds
+        .filter(id => typeof id === 'string' && id.length > 0)
+        .map(id => id.replace(/[^a-zA-Z0-9_\-]/g, ''));
+
+    if (sanitizedIds.length === 0) {
+        return;
+    }
+
+    // Pobierz mecze do oznaczenia jako zakończone
+    // (te które są active/pending ale nie ma ich w aktywnych ID)
+    const { data: matchesToUpdate, error: selectError } = await supabase
+        .from('matches')
+        .select('id, n01_match_id')
+        .eq('tournament_id', tournamentId)
+        .in('status', ['active', 'pending']);
+
+    if (selectError) {
+        console.error('Error fetching matches to mark as finished:', selectError);
+        return;
+    }
+
+    // Filtruj mecze których nie ma w sanitizedIds
+    const matchIdsToFinish = matchesToUpdate
+        .filter(m => !sanitizedIds.includes(m.n01_match_id))
+        .map(m => m.id);
+
+    if (matchIdsToFinish.length === 0) {
+        return;
+    }
+
+    // Aktualizuj znalezione mecze
+    const { error: updateError } = await supabase
         .from('matches')
         .update({ status: 'finished' })
-        .eq('tournament_id', tournamentId)
-        .in('status', ['active', 'pending'])
-        .not('n01_match_id', 'in', `(${activeMatchIds.map(id => `"${id}"`).join(',')})`);
+        .in('id', matchIdsToFinish);
 
-    if (error) {
-        console.error('Error marking missing matches as finished:', error);
+    if (updateError) {
+        console.error('Error marking missing matches as finished:', updateError);
+    } else {
+        log(`Marked ${matchIdsToFinish.length} matches as finished (no longer active)`);
     }
 }
 

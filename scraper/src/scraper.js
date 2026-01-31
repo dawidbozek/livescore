@@ -16,14 +16,90 @@ import {
 import { log, sleep } from './utils.js';
 
 let browser = null;
+let browserLaunchTime = null;
+const BROWSER_MAX_AGE_MS = 30 * 60 * 1000; // Restart przeglądarki co 30 min
 
 /**
- * Inicjalizuje przeglądarkę Puppeteer
+ * Sprawdza czy przeglądarka jest aktywna i zdrowa
+ * @returns {Promise<boolean>}
+ */
+async function isBrowserHealthy() {
+    if (!browser) return false;
+
+    try {
+        // Sprawdź czy proces przeglądarki żyje
+        const process = browser.process();
+        if (!process || process.killed) {
+            log('Browser process is dead', 'warn');
+            return false;
+        }
+
+        // Sprawdź czy możemy wykonać prostą operację
+        const pages = await browser.pages();
+        if (pages === undefined) {
+            log('Browser unresponsive', 'warn');
+            return false;
+        }
+
+        // Sprawdź wiek przeglądarki (restart co 30 min dla czystości pamięci)
+        if (browserLaunchTime && Date.now() - browserLaunchTime > BROWSER_MAX_AGE_MS) {
+            log('Browser exceeded max age, scheduling restart', 'warn');
+            return false;
+        }
+
+        return true;
+    } catch (error) {
+        log(`Browser health check failed: ${error.message}`, 'error');
+        return false;
+    }
+}
+
+/**
+ * Wymusza restart przeglądarki
+ * @returns {Promise<Browser>}
+ */
+async function restartBrowser() {
+    log('Restarting browser...', 'warn');
+
+    // Spróbuj zamknąć starą instancję
+    if (browser) {
+        try {
+            await browser.close();
+        } catch (e) {
+            log(`Error closing old browser: ${e.message}`, 'error');
+            // Jeśli nie można zamknąć, spróbuj zabić proces
+            try {
+                const proc = browser.process();
+                if (proc) proc.kill('SIGKILL');
+            } catch {
+                // Ignoruj błędy zabijania
+            }
+        }
+        browser = null;
+    }
+
+    // Uruchom nową instancję
+    return initBrowser();
+}
+
+/**
+ * Inicjalizuje przeglądarkę Puppeteer (z health check)
  * @returns {Promise<Browser>}
  */
 export async function initBrowser() {
-    if (browser) {
+    // Sprawdź czy istniejąca przeglądarka jest zdrowa
+    if (browser && await isBrowserHealthy()) {
         return browser;
+    }
+
+    // Jeśli browser istnieje ale nie jest zdrowy, zamknij go
+    if (browser) {
+        try {
+            await browser.close();
+        } catch (e) {
+            log(`Error closing unhealthy browser: ${e.message}`, 'error');
+        }
+        browser = null;
     }
 
     log('Initializing Puppeteer browser...');
@@ -41,6 +117,7 @@ export async function initBrowser() {
         ]
     });
 
+    browserLaunchTime = Date.now();
     log('Browser initialized');
     return browser;
 }

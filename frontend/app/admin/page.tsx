@@ -65,17 +65,30 @@ export default function AdminPage() {
   const [formError, setFormError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+
   const { tournaments, isLoading, refetch } = useTournaments({
     date: selectedDate,
     includeInactive: true,
   });
 
-  // Sprawdź sesję
+  // Sprawdź sesję przy ładowaniu strony (HTTP-only cookie)
   useEffect(() => {
-    const authStatus = sessionStorage.getItem('admin_authenticated');
-    if (authStatus === 'true') {
-      setIsAuthenticated(true);
-    }
+    const checkAuth = async () => {
+      try {
+        const response = await fetch('/api/admin/auth', {
+          method: 'GET',
+          credentials: 'include', // Ważne dla cookies
+        });
+        const data = await response.json();
+        setIsAuthenticated(data.authenticated === true);
+      } catch {
+        setIsAuthenticated(false);
+      } finally {
+        setIsCheckingAuth(false);
+      }
+    };
+    checkAuth();
   }, []);
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -87,6 +100,7 @@ export default function AdminPage() {
       const response = await fetch('/api/admin/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // Ważne dla cookies
         body: JSON.stringify({ password }),
       });
 
@@ -94,7 +108,6 @@ export default function AdminPage() {
 
       if (data.success) {
         setIsAuthenticated(true);
-        sessionStorage.setItem('admin_authenticated', 'true');
       } else {
         setAuthError(data.message || 'Nieprawidłowe hasło');
       }
@@ -105,9 +118,16 @@ export default function AdminPage() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/admin/auth', {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+    } catch {
+      // Ignoruj błędy wylogowania
+    }
     setIsAuthenticated(false);
-    sessionStorage.removeItem('admin_authenticated');
     setPassword('');
   };
 
@@ -220,6 +240,18 @@ export default function AdminPage() {
       console.error('Error deleting tournament:', err);
     }
   };
+
+  // Ładowanie sprawdzania sesji
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Sprawdzanie sesji...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Ekran logowania
   if (!isAuthenticated) {

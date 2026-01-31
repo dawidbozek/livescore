@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { GroupWithMatches } from '@/lib/types';
 import { toDateString } from '@/lib/utils';
 
@@ -32,7 +32,19 @@ export function useGroups(options: UseGroupsOptions = {}): UseGroupsReturn {
   const [error, setError] = useState<Error | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
+  // AbortController do anulowania żądań przy unmount
+  const abortControllerRef = useRef<AbortController | null>(null);
+
   const fetchGroups = useCallback(async () => {
+    // Anuluj poprzednie żądanie
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // Utwórz nowy AbortController
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
+
     try {
       const params = new URLSearchParams();
 
@@ -48,27 +60,46 @@ export function useGroups(options: UseGroupsOptions = {}): UseGroupsReturn {
         params.append('active_only', 'true');
       }
 
-      const response = await fetch(`/api/groups?${params.toString()}`);
+      const response = await fetch(`/api/groups?${params.toString()}`, { signal });
 
       if (!response.ok) {
         throw new Error('Failed to fetch groups');
       }
 
       const data = await response.json();
-      setGroups(data.groups || []);
-      setLastUpdated(new Date(data.lastUpdated));
-      setError(null);
+
+      // Sprawdź czy żądanie nie zostało anulowane
+      if (!signal.aborted) {
+        setGroups(data.groups || []);
+        setLastUpdated(new Date(data.lastUpdated));
+        setError(null);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err : new Error('Unknown error'));
+      // Ignoruj błędy anulowanych żądań
+      if (err instanceof Error && err.name === 'AbortError') {
+        return;
+      }
+      if (!abortControllerRef.current?.signal.aborted) {
+        setError(err instanceof Error ? err : new Error('Unknown error'));
+      }
     } finally {
-      setIsLoading(false);
+      if (!abortControllerRef.current?.signal.aborted) {
+        setIsLoading(false);
+      }
     }
   }, [date, tournamentId, activeOnly]);
 
-  // Initial fetch
+  // Initial fetch + cleanup
   useEffect(() => {
     setIsLoading(true);
     fetchGroups();
+
+    // Cleanup: anuluj żądanie przy unmount
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
   }, [fetchGroups]);
 
   // Polling
