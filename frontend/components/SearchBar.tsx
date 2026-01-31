@@ -103,7 +103,10 @@ export function SearchBar({
   };
 
   return (
-    <div className="relative w-full">
+    <div className="w-full">
+      <label className="block text-sm font-medium text-foreground mb-1.5">
+        Wyszukaj zawodnika:
+      </label>
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input

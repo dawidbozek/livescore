@@ -10,13 +10,17 @@ export async function GET(request: NextRequest) {
     let query = supabase
       .from('tournaments')
       .select('*')
-      .eq('is_active', true)
       .order('tournament_date', { ascending: false });
 
-    // Jeśli activeOnly=true, nie filtruj po dacie - pobierz wszystkie aktywne turnieje
-    // Jeśli jest data, filtruj po niej
-    if (date && !activeOnly) {
+    if (activeOnly) {
+      // Tryb "Aktualne turnieje" - tylko aktywne
+      query = query.eq('is_active', true);
+    } else if (date) {
+      // Tryb wyboru daty - wszystkie turnieje z tej daty (także zakończone)
       query = query.eq('tournament_date', date);
+    } else {
+      // Domyślnie - tylko aktywne
+      query = query.eq('is_active', true);
     }
 
     const { data, error } = await query;

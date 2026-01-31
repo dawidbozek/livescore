@@ -58,18 +58,32 @@ export async function closeBrowser() {
 }
 
 /**
+ * Mapuje tekst statusu z n01 na wartość w bazie danych
+ * @param {string} statusText - Tekst statusu z nagłówka n01
+ * @returns {string} Status w formacie bazy danych
+ */
+function mapTournamentStatus(statusText) {
+    const text = statusText.toLowerCase();
+    if (text.includes('accepting entries')) return 'accepting_entries';
+    if (text.includes('making brackets')) return 'making_brackets';
+    if (text.includes('in session')) return 'in_session';
+    if (text.includes('completed')) return 'completed';
+    return 'unknown';
+}
+
+/**
  * Scrapuje stronę turnieju i zwraca dane meczów (i grup jeśli są)
  * @param {string} url - URL strony turnieju n01darts.com
  * @param {Object} options - Opcje scrapowania
  * @param {boolean} options.isSteelType - Czy to turniej Steel (dla sędziów)
  * @param {string} options.tournamentFormat - Format turnieju ('single_ko' lub 'groups_ko')
- * @returns {Promise<Object>} Obiekt z meczami i grupami { matches: Array, groups: Array }
+ * @returns {Promise<Object>} Obiekt z meczami, grupami i statusem { matches: Array, groups: Array, tournamentStatus: string }
  */
 export async function scrapeTournament(url, options = {}) {
     const { isSteelType = true, tournamentFormat = 'single_ko' } = options;
     if (!isValidN01Url(url)) {
         log(`Invalid n01darts.com URL: ${url}`, 'error');
-        return { matches: [], groups: [] };
+        return { matches: [], groups: [], tournamentStatus: 'unknown' };
     }
 
     const browserInstance = await initBrowser();
@@ -95,6 +109,56 @@ export async function scrapeTournament(url, options = {}) {
         // Poczekaj na załadowanie dynamicznej zawartości JavaScript
         log('Waiting for JavaScript to load...');
         await sleep(5000);
+
+        // Pobierz status turnieju z nagłówka - próbuj różnych selektorów
+        let tournamentStatus = 'unknown';
+        const statusSelectors = [
+            '#header_title_detail',
+            '.header_title_detail',
+            '.tournament_status',
+            '.t_status',
+            '[class*="status"]',
+            '.header_detail',
+            '#t_status'
+        ];
+
+        for (const selector of statusSelectors) {
+            try {
+                const statusText = await page.$eval(selector, el => el.textContent?.trim() || '');
+                if (statusText) {
+                    tournamentStatus = mapTournamentStatus(statusText);
+                    log(`Tournament status from ${selector}: "${statusText}" -> ${tournamentStatus}`);
+                    break;
+                }
+            } catch (e) {
+                // Kontynuuj do następnego selektora
+            }
+        }
+
+        // Jeśli nie znaleziono przez selektory, szukaj w całym body
+        if (tournamentStatus === 'unknown') {
+            try {
+                const bodyText = await page.evaluate(() => document.body?.innerText || '');
+                // Szukaj statusu w tekście strony
+                if (bodyText.toLowerCase().includes('(completed)')) {
+                    tournamentStatus = 'completed';
+                    log('Tournament status found in body text: completed');
+                } else if (bodyText.toLowerCase().includes('(in session)')) {
+                    tournamentStatus = 'in_session';
+                    log('Tournament status found in body text: in_session');
+                } else if (bodyText.toLowerCase().includes('(accepting entries)')) {
+                    tournamentStatus = 'accepting_entries';
+                    log('Tournament status found in body text: accepting_entries');
+                } else if (bodyText.toLowerCase().includes('(making brackets)')) {
+                    tournamentStatus = 'making_brackets';
+                    log('Tournament status found in body text: making_brackets');
+                } else {
+                    log('Could not find tournament status on page', 'warn');
+                }
+            } catch (e) {
+                log('Error searching for status in body', 'warn');
+            }
+        }
 
         // Poczekaj na załadowanie elementów meczów LUB grup
         let hasKOMatches = false;
@@ -245,11 +309,11 @@ export async function scrapeTournament(url, options = {}) {
             log('No group tables detected and tournament format is not groups_ko');
         }
 
-        return { matches, groups };
+        return { matches, groups, tournamentStatus };
 
     } catch (error) {
         log(`Error scraping ${url}: ${error.message}`, 'error');
-        return { matches: [], groups: [] };
+        return { matches: [], groups: [], tournamentStatus: 'unknown' };
     } finally {
         if (page) {
             await page.close();

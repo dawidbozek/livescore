@@ -470,6 +470,122 @@ export async function getGroupsWithMatchesByTournament(tournamentId) {
     }));
 }
 
+// =============================================
+// Funkcje dla statystyk turniejów Steel
+// =============================================
+
+/**
+ * Zapisuje lub aktualizuje statystyki turnieju (upsert)
+ * @param {string} tournamentId - ID turnieju
+ * @param {Array} stats - Lista statystyk graczy
+ * @returns {Promise<Array>} Zapisane statystyki
+ */
+export async function upsertTournamentStats(tournamentId, stats) {
+    if (!stats || stats.length === 0) {
+        return [];
+    }
+
+    // Usuń duplikaty po nazwie gracza (zachowaj pierwszy)
+    const seenNames = new Set();
+    const uniqueStats = stats.filter(stat => {
+        if (!stat.playerName || seenNames.has(stat.playerName)) {
+            return false;
+        }
+        seenNames.add(stat.playerName);
+        return true;
+    });
+
+    console.log(`Upserting ${uniqueStats.length} unique stats (from ${stats.length} total)`);
+
+    const statsToUpsert = uniqueStats.map(stat => ({
+        tournament_id: tournamentId,
+        player_name: stat.playerName,
+        player_id: stat.playerId || null,
+        matches_played: stat.matchesPlayed || 0,
+        matches_won: stat.matchesWon || 0,
+        legs_played: stat.legsPlayed || 0,
+        legs_won: stat.legsWon || 0,
+        scores_100_plus: stat.scores100Plus || 0,
+        scores_140_plus: stat.scores140Plus || 0,
+        scores_180: stat.scores180 || 0,
+        high_finish: stat.highFinish || null,
+        best_leg: stat.bestLeg || null,
+        worst_leg: stat.worstLeg || null,
+        avg_3_darts: stat.avg3Darts || null,
+        avg_first_9: stat.avgFirst9 || null,
+        total_score: stat.totalScore || 0,
+        total_darts: stat.totalDarts || 0,
+    }));
+
+    const { data, error } = await supabase
+        .from('tournament_stats')
+        .upsert(statsToUpsert, {
+            onConflict: 'tournament_id,player_name',
+            ignoreDuplicates: false
+        })
+        .select();
+
+    if (error) {
+        console.error('Error upserting tournament stats:', error);
+        throw error;
+    }
+
+    return data || [];
+}
+
+/**
+ * Pobiera statystyki turnieju
+ * @param {string} tournamentId - ID turnieju
+ * @returns {Promise<Array>} Lista statystyk posortowana po średniej
+ */
+export async function getTournamentStats(tournamentId) {
+    const { data, error } = await supabase
+        .from('tournament_stats')
+        .select('*')
+        .eq('tournament_id', tournamentId)
+        .order('avg_3_darts', { ascending: false, nullsFirst: false });
+
+    if (error) {
+        console.error('Error fetching tournament stats:', error);
+        throw error;
+    }
+
+    return data || [];
+}
+
+/**
+ * Aktualizuje status turnieju
+ * @param {string} tournamentId - ID turnieju
+ * @param {string} status - Status turnieju (accepting_entries, making_brackets, in_session, completed, unknown)
+ * @param {boolean} autoDeactivate - Czy automatycznie dezaktywować zakończone turnieje
+ * @returns {Promise<Object>} Zaktualizowany turniej
+ */
+export async function updateTournamentStatus(tournamentId, status, autoDeactivate = true) {
+    const updates = {
+        tournament_status: status
+    };
+
+    // Automatycznie dezaktywuj zakończone turnieje
+    if (autoDeactivate && status === 'completed') {
+        updates.is_active = false;
+        console.log(`Tournament ${tournamentId} completed - auto-deactivating`);
+    }
+
+    const { data, error } = await supabase
+        .from('tournaments')
+        .update(updates)
+        .eq('id', tournamentId)
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Error updating tournament status:', error);
+        throw error;
+    }
+
+    return data;
+}
+
 /**
  * Usuwa wszystkie grupy i mecze grupowe dla turnieju
  * @param {string} tournamentId - ID turnieju

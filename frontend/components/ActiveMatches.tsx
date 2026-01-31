@@ -1,7 +1,7 @@
 'use client';
 
 import { Zap } from 'lucide-react';
-import { MatchCard } from './MatchCard';
+import { CompactMatchCard } from './CompactMatchCard';
 import type { Match } from '@/lib/types';
 import { sortByStation } from '@/lib/utils';
 
@@ -22,7 +22,7 @@ export function ActiveMatches({
   const sortedMatches = sortByStation(matches);
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-3">
       <div className="flex items-center gap-2">
         <Zap className="w-5 h-5 text-darts-green" />
         <h2 className="text-lg sm:text-xl font-bold">
@@ -30,9 +30,9 @@ export function ActiveMatches({
         </h2>
       </div>
 
-      <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="space-y-2">
         {sortedMatches.map((match) => (
-          <MatchCard
+          <CompactMatchCard
             key={match.id}
             match={match}
             showTournament={showTournament}

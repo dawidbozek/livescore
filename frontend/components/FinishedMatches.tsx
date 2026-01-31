@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
-import { MatchCard } from './MatchCard';
+import { CompactMatchCard } from './CompactMatchCard';
 import type { Match } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
@@ -24,14 +24,14 @@ export function FinishedMatches({
   }
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-3">
       <button
         onClick={() => setIsExpanded(!isExpanded)}
         className="w-full flex items-center justify-between gap-2 py-2 hover:bg-muted/50 rounded-md transition-colors -mx-2 px-2"
       >
         <div className="flex items-center gap-2">
           <CheckCircle className="w-5 h-5 text-muted-foreground" />
-          <h2 className="text-xl font-bold">
+          <h2 className="text-lg sm:text-xl font-bold">
             Zakończone ({matches.length})
           </h2>
         </div>
@@ -47,12 +47,12 @@ export function FinishedMatches({
 
       <div
         className={cn(
-          'grid gap-4 sm:grid-cols-2 lg:grid-cols-3 transition-all duration-300',
+          'space-y-2 transition-all duration-300',
           isExpanded ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'
         )}
       >
         {matches.map((match) => (
-          <MatchCard
+          <CompactMatchCard
             key={match.id}
             match={match}
             showTournament={showTournament}

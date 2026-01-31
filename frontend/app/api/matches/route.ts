@@ -26,17 +26,20 @@ export async function GET(request: NextRequest) {
           image_url
         )
       `)
-      .eq('tournament.is_active', true)
       .order('station_number', { ascending: true, nullsFirst: false });
 
-    // Jeśli activeOnly=true, nie filtruj po dacie - pobierz wszystkie aktywne turnieje
-    // Jeśli jest data, filtruj po niej
-    if (date && !activeOnly) {
-      query = query.eq('tournament.tournament_date', date);
-    }
-
     if (tournamentId) {
+      // Konkretny turniej - nie filtruj po is_active
       query = query.eq('tournament_id', tournamentId);
+    } else if (activeOnly) {
+      // Tryb "Aktualne turnieje" - tylko aktywne
+      query = query.eq('tournament.is_active', true);
+    } else if (date) {
+      // Tryb wyboru daty - wszystkie turnieje z tej daty (także zakończone)
+      query = query.eq('tournament.tournament_date', date);
+    } else {
+      // Domyślnie - tylko aktywne
+      query = query.eq('tournament.is_active', true);
     }
 
     const { data, error } = await query;

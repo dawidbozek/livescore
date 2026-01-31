@@ -148,3 +148,36 @@ export interface MatchesApiResponse {
   matches: Match[];
   lastUpdated: string;
 }
+
+// =============================================
+// Typy dla statystyk turniejów Steel
+// =============================================
+
+export type TournamentStatus = 'accepting_entries' | 'making_brackets' | 'in_session' | 'completed' | 'unknown';
+
+export interface TournamentStat {
+  id: string;
+  tournament_id: string;
+  player_name: string;
+  player_id: string | null;
+  matches_played: number;
+  matches_won: number;
+  legs_played: number;
+  legs_won: number;
+  scores_100_plus: number;
+  scores_140_plus: number;
+  scores_180: number;
+  high_finish: number | null;
+  best_leg: number | null;
+  worst_leg: number | null;
+  avg_3_darts: number | null;
+  avg_first_9: number | null;
+  total_score: number;
+  total_darts: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TournamentStatsApiResponse {
+  stats: TournamentStat[];
+}

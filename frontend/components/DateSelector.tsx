@@ -56,16 +56,18 @@ export function DateSelector({ selectedDate, onDateChange }: DateSelectorProps) 
       <div className="flex gap-2">
         <Button
           variant={selectedDate === null ? 'default' : 'outline'}
-          size="icon"
+          size="sm"
           onClick={selectAllActive}
           className={cn(
-            'min-h-[44px] min-w-[44px]',
+            'min-h-[44px] px-3 gap-1.5',
             selectedDate === null && 'bg-darts-green hover:bg-darts-green/90'
           )}
           aria-label="Wszystkie aktywne"
           title="Wszystkie aktywne"
         >
-          <Zap className="w-5 h-5" />
+          <Zap className="w-4 h-4" />
+          <span className="hidden xs:inline">Aktualne turnieje</span>
+          <span className="xs:hidden">Aktywne</span>
         </Button>
         <Button
           variant={selectedDate && toDateString(selectedDate) === toDateString(today) ? 'default' : 'outline'}

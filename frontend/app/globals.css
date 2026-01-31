@@ -148,3 +148,58 @@
     font-size: 0.875rem; /* 14px */
   }
 }
+
+/* =============================================
+   Responsywność dla małych telefonów (350-390px)
+   ============================================= */
+
+/* Małe telefony (do 390px) */
+@media (max-width: 390px) {
+  .match-card-compact {
+    padding: 8px;
+  }
+
+  .station-badge {
+    width: 36px;
+    min-width: 36px;
+    font-size: 14px;
+  }
+
+  .compact-player-name {
+    font-size: 13px;
+  }
+
+  .compact-score {
+    font-size: 14px;
+  }
+
+  .compact-meta {
+    font-size: 11px;
+  }
+}
+
+/* Bardzo małe telefony (do 350px) */
+@media (max-width: 350px) {
+  .station-badge {
+    width: 32px;
+    min-width: 32px;
+    font-size: 12px;
+  }
+
+  .compact-player-name {
+    font-size: 12px;
+  }
+
+  .compact-score {
+    font-size: 13px;
+  }
+
+  .compact-meta {
+    font-size: 10px;
+  }
+
+  /* Wyszukiwarka */
+  .search-input {
+    font-size: 14px;
+  }
+}

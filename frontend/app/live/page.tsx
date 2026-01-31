@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { RefreshCw, Settings, Target } from 'lucide-react';
+import { RefreshCw, Settings, Target, Trophy, Calendar, Users } from 'lucide-react';
 import Link from 'next/link';
 
 import { Button } from '@/components/ui/button';
@@ -14,11 +14,13 @@ import { PendingMatches } from '@/components/PendingMatches';
 import { FinishedMatches } from '@/components/FinishedMatches';
 import { MatchCard } from '@/components/MatchCard';
 import { GroupCard } from '@/components/GroupCard';
+import { TournamentStats } from '@/components/TournamentStats';
 
 import { useMatches } from '@/hooks/useMatches';
 import { useTournaments } from '@/hooks/useTournaments';
 import { useGroups } from '@/hooks/useGroups';
-import { groupMatchesByStatus, groupGroupsByStatus, formatTimeAgo } from '@/lib/utils';
+import { useTournamentStats } from '@/hooks/useTournamentStats';
+import { groupMatchesByStatus, groupGroupsByStatus, formatTimeAgo, formatDate } from '@/lib/utils';
 import type { Match, Tournament, Group } from '@/lib/types';
 
 export default function LiveScorePage() {
@@ -43,6 +45,16 @@ export default function LiveScorePage() {
     date: selectedDate,
     tournamentId: selectedTournament?.id,
     activeOnly: selectedDate === null,
+  });
+
+  // Sprawdź czy wybrany turniej jest zakończony i Steel
+  const isCompletedSteelTournament = selectedTournament &&
+    !selectedTournament.is_active &&
+    selectedTournament.dart_type === 'steel';
+
+  // Pobierz statystyki dla zakończonego turnieju Steel
+  const { stats: tournamentStats, isLoading: statsLoading } = useTournamentStats({
+    tournamentId: isCompletedSteelTournament ? selectedTournament.id : null,
   });
 
   // Filtruj mecze na podstawie wyszukiwania
@@ -173,8 +185,65 @@ export default function LiveScorePage() {
           {/* Main content */}
           <div className="space-y-6 sm:space-y-8">
 
-            {/* Search results info */}
-            {(searchResults || searchGroupResults) && (
+            {/* Widok zakończonego turnieju Steel ze statystykami */}
+            {isCompletedSteelTournament && (
+              <>
+                {/* Header zakończonego turnieju */}
+                <div className="bg-gradient-to-r from-gray-100 to-gray-50 rounded-lg p-4 sm:p-6 border">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="px-2 py-1 bg-gray-600 text-white text-xs font-bold rounded">
+                      ZAKOŃCZONY
+                    </span>
+                    <span className="px-2 py-1 bg-darts-steel text-white text-xs font-bold rounded">
+                      STEEL
+                    </span>
+                  </div>
+                  <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
+                    <Trophy className="w-6 h-6 text-darts-gold" />
+                    {selectedTournament.name}
+                  </h2>
+                  <div className="flex flex-wrap gap-4 mt-2 text-sm text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Calendar className="w-4 h-4" />
+                      {formatDate(new Date(selectedTournament.tournament_date))}
+                    </span>
+                    {tournamentStats.length > 0 && (
+                      <span className="flex items-center gap-1">
+                        <Users className="w-4 h-4" />
+                        {tournamentStats.length} zawodników
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Statystyki lub loading */}
+                {statsLoading ? (
+                  <div className="space-y-4">
+                    <div className="skeleton h-40 rounded-lg" />
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                      {[1, 2, 3, 4].map(i => (
+                        <div key={i} className="skeleton h-24 rounded-lg" />
+                      ))}
+                    </div>
+                    <div className="skeleton h-64 rounded-lg" />
+                  </div>
+                ) : tournamentStats.length > 0 ? (
+                  <TournamentStats stats={tournamentStats} />
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Trophy className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                    <p>Brak statystyk dla tego turnieju</p>
+                    <p className="text-sm mt-1">Statystyki mogą być niedostępne dla starszych turniejów</p>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Normalny widok meczów (gdy nie jest to zakończony turniej Steel) */}
+            {!isCompletedSteelTournament && (
+              <>
+                {/* Search results info */}
+                {(searchResults || searchGroupResults) && (
               <div className="flex items-center justify-between p-3 sm:p-4 bg-muted rounded-lg">
                 <p className="text-sm sm:text-base">
                   Znaleziono{' '}
@@ -318,6 +387,8 @@ export default function LiveScorePage() {
                     )}
                   </>
                 )}
+              </>
+            )}
               </>
             )}
           </div>

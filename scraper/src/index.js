@@ -8,9 +8,12 @@ import {
     getActiveTournaments,
     upsertMatches,
     upsertGroups,
-    upsertGroupMatches
+    upsertGroupMatches,
+    updateTournamentStatus,
+    upsertTournamentStats
 } from './database.js';
 import { scrapeTournament, initBrowser, closeBrowser } from './scraper.js';
+import { scrapeTournamentStats } from './statsParser.js';
 import { log, sleep, formatDate, ScraperStats } from './utils.js';
 
 // Konfiguracja
@@ -54,7 +57,39 @@ async function scrapeAllTournaments() {
                     tournamentFormat: tournament.tournament_format || 'single_ko'
                 };
 
-                const { matches, groups } = await scrapeTournament(tournament.n01_url, scraperOptions);
+                const { matches, groups, tournamentStatus } = await scrapeTournament(tournament.n01_url, scraperOptions);
+
+                // Aktualizuj status turnieju w bazie
+                if (tournamentStatus && tournamentStatus !== 'unknown') {
+                    try {
+                        await updateTournamentStatus(tournament.id, tournamentStatus);
+                        log(`Updated tournament status to: ${tournamentStatus}`);
+
+                        // Jeśli turniej zakończony, pobierz statystyki (dla Steel) i dezaktywuj
+                        if (tournamentStatus === 'completed') {
+                            log(`Tournament ${tournament.name} is completed`);
+
+                            // Pobierz statystyki dla turniejów Steel
+                            if (tournament.dart_type === 'steel') {
+                                try {
+                                    log(`Scraping final stats for Steel tournament: ${tournament.name}`);
+                                    const tournamentStats = await scrapeTournamentStats(tournament.n01_url);
+                                    if (tournamentStats.length > 0) {
+                                        await upsertTournamentStats(tournament.id, tournamentStats);
+                                        log(`Saved ${tournamentStats.length} player statistics for ${tournament.name}`);
+                                    }
+                                } catch (statsError) {
+                                    log(`Error scraping tournament stats: ${statsError.message}`, 'warn');
+                                }
+                            }
+
+                            stats.recordScrape(tournament.id, true, 0);
+                            continue;
+                        }
+                    } catch (statusError) {
+                        log(`Error updating tournament status: ${statusError.message}`, 'warn');
+                    }
+                }
 
                 let totalItems = 0;
 
